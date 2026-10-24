@@ -4,6 +4,10 @@ Recréation en application web de **Specdrums Mix**, l'application de Sphero pou
 **Specdrums**, qui n'est plus maintenue. On tape une couleur avec la bague (ou sur l'écran, ou au clavier)
 et chaque couleur du tapis déclenche un son ou une boucle.
 
+![Écran de jeu : 4 pavés de boucles (▲ ◆ ★ ⬢) au-dessus des 8 pavés numérotés, aux couleurs du tapis Specdrums](docs/capture.jpg)
+
+*Écran de jeu : deux boucles actives (▲ et ★, liseré blanc) et le pavé 4 en cours de tap.*
+
 - Projet du service **biblio.gironde** (coopérations numériques).
 - Fonctionne dans **Chrome ou Edge** (Mac, PC, Chromebook, Android) grâce au Web Bluetooth.
   Sur iPad / iPhone : uniquement via un navigateur Web Bluetooth comme **Bluefy** (Safari ne gère pas le Web Bluetooth).
