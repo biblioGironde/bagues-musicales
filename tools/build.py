@@ -102,8 +102,24 @@ def main():
     src = src.replace("/*%%PACK%%*/null", json.dumps({"info": info, "files": files}))
 
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
-    open(a.out, "w", encoding="utf-8").write(src)
+    open(a.out, "w", encoding="utf-8").write(src.replace('href="editeur.html"', f'href="{editor_name(a.out)}"'))
+    write_editor(a.out)
     print(f"OK : {a.out} ({len(src) // 1024} Ko)")
+
+
+def editor_name(app_out):
+    """index.html -> editeur.html ; specdrums-mix.html -> specdrums-mix-editeur.html"""
+    base = os.path.basename(app_out)
+    return "editeur.html" if base == "index.html" else base.replace(".html", "-editeur.html")
+
+
+def write_editor(app_out):
+    """Copie l'éditeur de pack (aucune ressource Sphero) à côté de l'app, avec le lien retour vers elle."""
+    ed = open(os.path.join(ROOT, "src", "editeur.html"), encoding="utf-8").read()
+    ed = ed.replace('href="./index.html"', f'href="./{os.path.basename(app_out)}"')
+    path = os.path.join(os.path.dirname(app_out), editor_name(app_out))
+    open(path, "w", encoding="utf-8").write(ed)
+    print(f"OK : {path}")
 
 
 def build_demo(out):
@@ -125,7 +141,8 @@ def build_demo(out):
                       "dans Chrome / Edge (ou Bluefy sur iPad). Les groupes de sons d'origine s'importent dans la Bibliothèque."
                       ' · <a href="https://github.com/biblioGironde/bagues-musicales" style="color:#9ff" onclick="event.stopPropagation()">code source</a></small>')
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    open(out, "w", encoding="utf-8").write(src)
+    open(out, "w", encoding="utf-8").write(src.replace('href="editeur.html"', f'href="{editor_name(out)}"'))
+    write_editor(out)
     print(f"OK (démo) : {out} ({len(src) // 1024} Ko)")
 
 

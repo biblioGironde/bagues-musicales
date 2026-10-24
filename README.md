@@ -31,6 +31,11 @@ et chaque couleur du tapis déclenche un son ou une boucle.
 - Enregistrement (décompte 3-2-1) et **Ma musique** (écoute, téléchargement).
 - Bibliothèque : pack « Intro Mix » intégré + import des **63 autres groupes de sons d'origine** (archives .zip),
   conservés dans le navigateur (IndexedDB).
+- **Éditeur de pack** (bouton *CRÉER UN PACK* de la Bibliothèque, ou `editeur.html`) : importer des WAV/MP3/M4A/FLAC/OGG,
+  découper sur la forme d'onde (grille de mesures, tempo estimé, 1er temps détecté, aimantation grille / passage à zéro),
+  créer des **sons courts** (silence retiré, fondus, normalisation, calage au tempo), des **sons tenus** et des
+  **boucles propres** (longueur exacte en mesures, fondu enchaîné au point de bouclage, adaptation au tempo du pack),
+  les placer sur les 12 pavés, tester au clavier, puis **ajouter à la Bibliothèque** ou **exporter en .zip**.
 - Jeu sans bague : souris/tactile, ou clavier `Q S D F G H J K` (pavés 1-8) et `1 2 3 4` (▲ ◆ ★ ⬢), `Espace` coupe les boucles.
 
 ## Construire l'application
@@ -104,6 +109,7 @@ l'inventaire Bluetooth, les trames échangées et les taps. Utile pour vérifier
 
 ```
 src/index.html          interface + moteur audio + Bluetooth (ressources Sphero en marqueurs %%A:…%%)
+src/editeur.html        éditeur de pack (autonome, sans ressource Sphero)
 tools/build.py          assemble dist/specdrums-mix.html à partir de l'APK (ou la démo libre avec --demo)
 tools/demo_assets.py    icônes SVG et pack de sons synthétisé de la démo
 .github/workflows/      publication de la démo (Pages) et des applications (Releases)
