@@ -1,7 +1,7 @@
 {
   "name": "bagues-musicales",
   "productName": "Bagues musicales",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Webapp Specdrums Mix pour les bagues musicales Sphero Specdrums (version démo libre)",
   "author": "biblio.gironde",
   "homepage": "https://github.com/biblioGironde/bagues-musicales",
@@ -21,10 +21,25 @@
     "appId": "fr.gironde.biblio.bagues-musicales",
     "productName": "Bagues musicales",
     "artifactName": "Bagues-musicales-${version}-${os}-${arch}.${ext}",
-    "files": ["main.js", "preload.js", "app/**"],
-    "directories": { "buildResources": "build", "output": "release" },
+    "files": [
+      "main.js",
+      "preload.js",
+      "app/**"
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
     "mac": {
-      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
       "category": "public.app-category.music",
       "identity": null,
       "extendInfo": {
@@ -32,10 +47,48 @@
         "NSBluetoothPeripheralUsageDescription": "Bagues musicales se connecte en Bluetooth à vos bagues Specdrums."
       }
     },
-    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }] },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "artifactName": "Bagues-musicales-${version}-windows-setup.${ext}" },
-    "portable": { "artifactName": "Bagues-musicales-${version}-windows-portable.${ext}" },
-    "linux": { "target": [{ "target": "AppImage", "arch": ["x64"] }], "category": "Audio" },
-    "publish": [{ "provider": "github", "owner": "biblioGironde", "repo": "bagues-musicales", "releaseType": "release" }]
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Bagues-musicales-${version}-windows-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "Bagues-musicales-${version}-windows-portable.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Audio"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "biblioGironde",
+        "repo": "bagues-musicales",
+        "releaseType": "release"
+      }
+    ]
   }
 }

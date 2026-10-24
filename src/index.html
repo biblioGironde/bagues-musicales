@@ -562,7 +562,11 @@ $("#importPacks").onchange = async e => {
       toast(`Import de ${f.name}…`);
       await readZip(f, async (name, data) => {
         const path = name.replace(/^specdrums-packs\//, "");
-        if (path === "packs.json") { lib.catalog = JSON.parse(new TextDecoder().decode(data)); await db.putMeta("catalog", lib.catalog); return; }
+        if (path === "packs.json") {   // fusion : un nouvel import complète le catalogue au lieu de le remplacer
+          const incoming = JSON.parse(new TextDecoder().decode(data));
+          lib.catalog = {...(lib.catalog || {}), ...incoming, packs: {...(lib.catalog?.packs || {}), ...(incoming.packs || {})}};
+          await db.putMeta("catalog", lib.catalog); return;
+        }
         const ext = path.split(".").pop().toLowerCase(); if (!MIME[ext]) return;
         batch.push([path, new Blob([data], {type: MIME[ext]})]); count++;
         if (batch.length >= 40) { await flush(); toast(`Import… ${count} fichiers`); }
