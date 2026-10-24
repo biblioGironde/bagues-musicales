@@ -7,6 +7,7 @@ directement dans l'APK que vous possédez et les intègre dans dist/specdrums-mi
 Usage :
     python3 tools/build.py --apk Specdrums_Mix_1_2_2.apk
     python3 tools/build.py --apk Specdrums_Mix_1_2_2.apk --out dist/specdrums-mix.html
+    python3 tools/build.py --demo            # version démo libre (icônes SVG, sons synthétisés) -> site/index.html
 
 Dépendance optionnelle : Pillow (pip install pillow) pour alléger les grandes images.
 """
@@ -68,9 +69,15 @@ def convert(name, raw):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--apk", required=True, help="chemin vers Specdrums_Mix_*.apk")
-    ap.add_argument("--out", default=os.path.join(ROOT, "dist", "specdrums-mix.html"))
+    ap.add_argument("--apk", help="chemin vers Specdrums_Mix_*.apk")
+    ap.add_argument("--demo", action="store_true", help="version démo sans aucune ressource Sphero (GitHub Pages)")
+    ap.add_argument("--out")
     a = ap.parse_args()
+    if a.demo:
+        return build_demo(a.out or os.path.join(ROOT, "site", "index.html"))
+    if not a.apk:
+        ap.error("--apk est requis (ou --demo)")
+    a.out = a.out or os.path.join(ROOT, "dist", "specdrums-mix.html")
 
     apk = zipfile.ZipFile(a.apk)
     names = set(apk.namelist())
@@ -97,6 +104,29 @@ def main():
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     open(a.out, "w", encoding="utf-8").write(src)
     print(f"OK : {a.out} ({len(src) // 1024} Ko)")
+
+
+def build_demo(out):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import demo_assets
+    src = open(os.path.join(ROOT, "src", "index.html"), encoding="utf-8").read()
+    # police libre (Oswald, Google Fonts) à la place de la police d'origine
+    src = re.sub(r'@font-face\{font-family:"BlockGothic";[^}]*\}\n?', "", src)
+    src = src.replace('"BlockGothic"', '"Oswald"').replace("BlockGothic", "Oswald")
+    src = src.replace("<title>Specdrums Mix</title>",
+                      '<title>Bagues musicales — démo</title>\n<link rel="preconnect" href="https://fonts.googleapis.com">'
+                      '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+                      '<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;500&display=swap" rel="stylesheet">')
+    src = re.sub(r"%%A:([^%]+)%%", lambda m: demo_assets.icon_uri(m.group(1)), src)
+    src = src.replace("/*%%PACK%%*/null", json.dumps(demo_assets.demo_pack(), ensure_ascii=False))
+    src = src.replace("<!--%%SPLASH%%-->",
+                      '<small style="max-width:560px;text-align:center;color:#aab;font-size:15px;line-height:1.4;padding:0 20px">'
+                      "Version démo libre : sons synthétisés et icônes génériques. Fonctionne avec les bagues Specdrums "
+                      "dans Chrome / Edge (ou Bluefy sur iPad). Les groupes de sons d'origine s'importent dans la Bibliothèque."
+                      ' · <a href="https://github.com/biblioGironde/bagues-musicales" style="color:#9ff" onclick="event.stopPropagation()">code source</a></small>')
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    open(out, "w", encoding="utf-8").write(src)
+    print(f"OK (démo) : {out} ({len(src) // 1024} Ko)")
 
 
 if __name__ == "__main__":

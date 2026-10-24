@@ -8,6 +8,9 @@ et chaque couleur du tapis déclenche un son ou une boucle.
 
 *Écran de jeu : deux boucles actives (▲ et ★, liseré blanc) et le pavé 4 en cours de tap.*
 
+- **▶ Démo en ligne : https://bibliogironde.github.io/bagues-musicales/** (version libre : sons synthétisés,
+  icônes génériques ; les bagues s'y connectent dans Chrome/Edge, et les groupes de sons d'origine s'y importent).
+  Banc de test Bluetooth : https://bibliogironde.github.io/bagues-musicales/test.html
 - Projet du service **biblio.gironde** (coopérations numériques).
 - Fonctionne dans **Chrome ou Edge** (Mac, PC, Chromebook, Android) grâce au Web Bluetooth.
   Sur iPad / iPhone : uniquement via un navigateur Web Bluetooth comme **Bluefy** (Safari ne gère pas le Web Bluetooth).
@@ -37,6 +40,16 @@ Prérequis : Python 3 (et, en option, `pip install pillow` pour alléger les ima
 python3 tools/build.py --apk /chemin/vers/Specdrums_Mix_1_2_2.apk
 # -> dist/specdrums-mix.html (fichier unique, ~3 Mo) : l'ouvrir dans Chrome
 ```
+
+## Version démo (GitHub Pages)
+
+```bash
+python3 tools/build.py --demo     # -> site/index.html, sans aucune ressource Sphero
+```
+
+Publiée automatiquement à chaque push sur `main` par `.github/workflows/pages.yml`
+(réglage du dépôt : *Settings → Pages → Source : GitHub Actions*). Le pack « Démo synthé » et les icônes
+sont générés par `tools/demo_assets.py`.
 
 ## Récupérer les groupes de sons (facultatif)
 
@@ -70,7 +83,9 @@ l'inventaire Bluetooth, les trames échangées et les taps. Utile pour vérifier
 
 ```
 src/index.html          interface + moteur audio + Bluetooth (ressources Sphero en marqueurs %%A:…%%)
-tools/build.py          assemble dist/specdrums-mix.html à partir de l'APK
+tools/build.py          assemble dist/specdrums-mix.html à partir de l'APK (ou la démo libre avec --demo)
+tools/demo_assets.py    icônes SVG et pack de sons synthétisé de la démo
+.github/workflows/      publication de la démo sur GitHub Pages
 tools/fetch_packs.py    sauvegarde locale des groupes de sons d'origine
 test/specdrums-test.html  banc de test Bluetooth
 docs/protocole-ble.md   protocole des bagues

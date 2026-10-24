@@ -14,7 +14,7 @@
   --toolbar-h:56px; --nav-h:84px;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:#fff;font-family:"BlockGothic",system-ui,sans-serif;font-weight:300;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:#fff;font-family:"BlockGothic","Oswald",system-ui,sans-serif;font-weight:300;user-select:none;-webkit-user-select:none}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
 img{display:block}
 
@@ -265,7 +265,7 @@ body.editor .pad .face{animation:wiggle 2.4s ease-in-out infinite}
 
 <div id="countdown"></div>
 <div id="toast"></div>
-<div id="splash"><img src="%%A:logo_specdrums.png%%" alt="specdrums"><span>TOUCHE L'ÉCRAN POUR COMMENCER</span></div>
+<div id="splash"><img src="%%A:logo_specdrums.png%%" alt="specdrums"><span>TOUCHE L'ÉCRAN POUR COMMENCER</span><!--%%SPLASH%%--></div>
 
 <script>
 "use strict";
@@ -514,8 +514,8 @@ function renderPacks() {
   const others = lib.catalog ? Object.entries(lib.catalog.packs).filter(([k]) => k !== "4").sort((a, b) => packName(a[1]).localeCompare(packName(b[1]), "fr", {numeric:true})) : [];
   const nAvail = others.filter(([k]) => packAvailable(k)).length;
   $("#packsNote").textContent = lib.catalog
-    ? `${nAvail} / ${others.length} groupes de sons importés (+ Intro Mix intégré). Touche un groupe pour le charger sur les pavés.`
-    : "Seul le groupe « Intro Mix » est intégré. Importe les fichiers specdrums-packs-1.zip à 4.zip (tous en une fois) pour ajouter les 63 autres groupes de sons d'origine : ils sont ensuite conservés dans ce navigateur.";
+    ? `${nAvail} / ${others.length} groupes de sons importés (+ ${packName(PACK.info)} intégré). Touche un groupe pour le charger sur les pavés.`
+    : `Seul le groupe « ${packName(PACK.info)} » est intégré. Importe les fichiers specdrums-packs-1.zip à 4.zip (tous en une fois) pour ajouter les groupes de sons d'origine : ils sont ensuite conservés dans ce navigateur.`;
   $("#packs").innerHTML = card("builtin", PACK.info, true, IMG.packArt) + others.map(([k, v]) => card(k, v, packAvailable(k), lib.urls.get(v.artworkPath))).join("");
   $("#packs").querySelectorAll(".pack:not(.locked)").forEach(c => c.onclick = async () => {
     if (!audio.ctx || c.dataset.id === current.id) return;

@@ -8,3 +8,4 @@ packs/
 *.flac
 __pycache__/
 .DS_Store
+site/
