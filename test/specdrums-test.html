@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Specdrums – banc de test</title>
+<style>
+  :root{
+    --bg:#111317; --panel:#1a1d23; --line:#2a2e37; --text:#e8eaef; --mute:#8d93a1;
+    --accent:#ffb347; --ok:#5fd38d; --err:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  h1{font-size:18px;margin:0;font-weight:650;letter-spacing:.2px}
+  h1 small{color:var(--mute);font-weight:400;margin-left:8px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);margin:0 0 12px;font-weight:600}
+  main{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;padding:16px 24px 32px}
+  @media (max-width:1000px){main{grid-template-columns:1fr}}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  button,.btn{background:#262a33;color:var(--text);border:1px solid #363b46;border-radius:8px;padding:8px 14px;font:inherit;cursor:pointer}
+  button:hover,.btn:hover{border-color:#4a505d}
+  button.primary{background:var(--accent);color:#1a1205;border-color:var(--accent);font-weight:600}
+  button:disabled{opacity:.45;cursor:default}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .warn{background:#3a2412;border:1px solid #6b4318;color:#ffd7a8;padding:10px 14px;border-radius:8px;margin:12px 24px 0}
+  .rings{display:grid;gap:10px;margin-top:12px}
+  .ring{border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;grid-template-columns:56px 1fr auto;gap:12px;align-items:center}
+  .swatch{width:56px;height:56px;border-radius:50%;border:2px solid #333;background:#000;transition:transform .08s}
+  .swatch.hit{transform:scale(1.15)}
+  .ring .meta{font-size:13px;color:var(--mute)}
+  .ring .meta b{color:var(--text);font-weight:600}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--mute);margin-right:6px}
+  .dot.on{background:var(--ok)} .dot.err{background:var(--err)}
+  .pads{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .pad{aspect-ratio:1.25;border-radius:12px;border:1px solid var(--line);background:#20242b;padding:10px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;cursor:pointer;user-select:none}
+  .pad .chip{width:22px;height:22px;border-radius:50%;border:1px solid #0006}
+  .pad .name{font-size:12.5px;font-weight:600;line-height:1.2}
+  .pad .idx{position:absolute;top:8px;right:10px;font:600 11px ui-monospace,Menlo,monospace;color:var(--mute)}
+  .pad .mode{font-size:11px;color:var(--mute)}
+  .pad.playing{outline:3px solid var(--accent);outline-offset:-3px}
+  .pad.flash{filter:brightness(1.6)}
+  .pad.empty .name{color:var(--mute);font-weight:400}
+  #log{height:520px;overflow:auto;font:12px/1.5 ui-monospace,Menlo,monospace;background:#0c0e11;border:1px solid var(--line);border-radius:8px;padding:8px;white-space:pre-wrap;word-break:break-all}
+  #log .tx{color:#7fb4ff} #log .rx{color:#c9cdd6} #log .ev{color:var(--accent)} #log .er{color:var(--err)} #log .in{color:var(--ok)}
+  label.chk{display:flex;gap:6px;align-items:center;color:var(--mute);font-size:13px}
+  .help{color:var(--mute);font-size:13px;margin:10px 0 0}
+  code{background:#0c0e11;padding:1px 5px;border-radius:4px}
+  .palette{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .palette span{width:26px;height:26px;border-radius:6px;border:1px solid #0008;display:grid;place-items:center;font:600 10px ui-monospace,monospace;color:#000a}
+</style>
+</head>
+<body>
+<header>
+  <h1>Specdrums <small>banc de test Bluetooth + sons</small></h1>
+  <div class="row" style="margin-left:auto">
+    <button class="primary" id="btnConnect">＋ Connecter une bague</button>
+    <label class="btn" for="files">🎵 Charger les sons…</label>
+    <input type="file" id="files" accept="audio/*,.m4a,.wav,.mp3,.json" multiple hidden>
+  </div>
+</header>
+<div class="warn" id="noBle" hidden>Web Bluetooth n'est pas disponible dans ce navigateur. Utilisez <b>Chrome</b> ou <b>Edge</b> sur Mac (pas Safari ni Firefox).</div>
+
+<main>
+  <div style="display:grid;gap:16px;align-content:start">
+    <section>
+      <h2>Bagues</h2>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="acceptAll"> Afficher tous les appareils Bluetooth (si la bague n'apparaît pas)</label>
+      </div>
+      <div class="rings" id="rings"><div class="help">Aucune bague connectée. Allumez une bague (tapotez-la ou branchez-la), puis « Connecter une bague ». Répétez pour chaque bague.</div></div>
+    </section>
+
+    <section>
+      <h2>Pads (couleur détectée → son)</h2>
+      <div class="pads" id="pads"></div>
+      <p class="help">La bague reconnaît jusqu'à 12 couleurs (identifiants 0 à 11). Chaque couleur déclenche le son du pad correspondant. Cliquer sur un pad le joue à la souris. Clic droit sur un pad : basculer entre « maintien » (le son boucle tant que le doigt reste posé) et « bascule » (un tap lance la boucle, un autre l'arrête).</p>
+    </section>
+  </div>
+
+  <section style="align-self:start">
+    <h2>Journal</h2>
+    <div class="row" style="margin-bottom:8px">
+      <label class="chk"><input type="checkbox" id="showRaw" checked> Trames brutes</label>
+      <button id="btnCopy">Copier</button>
+      <button id="btnClear">Vider</button>
+    </div>
+    <div id="log"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+/* ============================================================
+   Protocole Sphero API v2, tel qu'utilisé par Specdrums Mix 1.2.2
+   (reconstitué à partir de l'APK décompilé)
+   ============================================================ */
+const UUID = {
+  // Famille « V2 » (BOLT, Mini…)
+  apiService:  "00010001-574f-4f20-5370-6865726f2121",
+  apiChar:     "00010002-574f-4f20-5370-6865726f2121",
+  dfuService:  "00020001-574f-4f20-5370-6865726f2121",
+  antiDos:     "00020005-574f-4f20-5370-6865726f2121",
+  dfuControl:  "00020002-574f-4f20-5370-6865726f2121",
+  dfuInfo:     "00020004-574f-4f20-5370-6865726f2121",
+  // Famille historique « 22bb746f » (BB-8, Ollie… et probablement Specdrums)
+  bleService:  "22bb746f-2ba0-7554-2d6f-726568705327",
+  legAntiDos:  "22bb746f-2bbd-7554-2d6f-726568705327",
+  legTxPower:  "22bb746f-2bb2-7554-2d6f-726568705327",
+  legWake:     "22bb746f-2bbf-7554-2d6f-726568705327",
+  robotService:"22bb746f-2bb0-7554-2d6f-726568705327",
+  legCommands: "22bb746f-2ba1-7554-2d6f-726568705327",
+  legResponses:"22bb746f-2ba6-7554-2d6f-726568705327",
+};
+const ALL_SERVICES = [UUID.apiService, UUID.dfuService, UUID.bleService, UUID.robotService];
+const ANTI_DOS = "usetheforce...band";
+const ANTI_DOS_LEGACY = "011i3";
+const SOP = 0x8D, EOP = 0xD8, ESC = 0xAB;
+const ESC_MAP = {0xAB:0x23, 0x8D:0x05, 0xD8:0x50};
+const F = {RESPONSE:0x01, REQ_RESP:0x02, REQ_ERR_RESP:0x04, ACTIVITY:0x08, HAS_TID:0x10, HAS_SID:0x20};
+
+// Device / command IDs
+const DID = {API:0x10, SYSTEM:0x11, POWER:0x13, IO:0x1A};
+const CHARGER = {0:"inconnu", 1:"pas en charge", 2:"en charge", 3:"chargée"};
+const BATTERY = {0:"?", 1:"OK", 2:"faible", 3:"critique"};
+const CMD = {
+  API_PING:0x00,
+  POWER_WAKE:0x0D, POWER_BATT_VOLTAGE:0x03, POWER_BATT_PERCENT:0x10, POWER_DEEP_SLEEP:0x00, POWER_ENABLE_BATT_NOTIFY:0x1B,
+  POWER_BATT_VOLTS:0x25, POWER_BATT_STATE:0x17, POWER_CHARGER_STATE:0x1F, POWER_ENABLE_CHARGER_NOTIFY:0x20,
+  SYS_MAIN_VERSION:0x00,
+  IO_ENABLE_COLOR_TAP:0x1D,   // 29
+  IO_COLOR_TAP_EVENT:0x1E,    // 30 (asynchrone : R,G,B,confiance,idCouleur,intensité)
+  IO_GET_PALETTE:0x44,        // 68
+  IO_SET_PALETTE:0x45,        // 69
+  IO_COLOR_ID_REPORT:0x46,    // 70
+  IO_LOAD_PALETTE:0x47,       // 71 (0 = DEFAULT, 1 = MIDI)
+};
+const NAMES = {
+  "17:0":"SYSTEM.getMainAppVersion",
+  "16:0":"API.ping","19:37":"POWER.getBatteryVolts","19:23":"POWER.getBatteryState","19:25":"POWER.willSleep ⚠","19:26":"POWER.didSleep ⚠","19:27":"POWER.enableBatteryNotify","19:28":"POWER.batteryStateChanged",
+  "19:31":"POWER.getChargerState","19:32":"POWER.enableChargerNotify","19:33":"POWER.chargerStateChanged",
+  "19:0":"POWER.enterDeepSleep","19:3":"POWER.getBatteryVoltage","19:13":"POWER.wake","19:16":"POWER.getBatteryPercentage",
+  "26:29":"IO.enableColorTapNotify","26:30":"IO.colorTapNotify","26:68":"IO.getActiveColorPalette",
+  "26:69":"IO.setActiveColorPalette","26:70":"IO.getColorIdReport","26:71":"IO.loadColorPalette",
+};
+const ERR = {0:"ok",1:"bad_device_id",2:"bad_command_id",3:"not_yet_implemented",4:"command_is_restricted",5:"bad_data_length",6:"command_failed",7:"bad_parameter_value",8:"busy",9:"bad_target_id",10:"target_unavailable"};
+
+const hex = a => Array.from(a, b => b.toString(16).padStart(2,"0")).join(" ");
+
+function encodePacket(did, cid, seq, data = [], flags = F.REQ_RESP | F.ACTIVITY) {
+  const body = [flags, did, cid, seq, ...data];
+  const sum = body.reduce((s, b) => s + b, 0);
+  body.push((~sum) & 0xFF);
+  const out = [SOP];
+  for (const b of body) {
+    if (b in ESC_MAP) out.push(ESC, ESC_MAP[b]); else out.push(b);
+  }
+  out.push(EOP);
+  return new Uint8Array(out);
+}
+
+/** Lecteur de flux : reconstitue les trames même si elles arrivent découpées. */
+class PacketReader {
+  constructor(onPacket, onError) { this.buf = null; this.esc = false; this.onPacket = onPacket; this.onError = onError; }
+  push(bytes) {
+    for (const b of bytes) {
+      if (b === SOP) { this.buf = []; this.esc = false; continue; }
+      if (this.buf === null) continue;
+      if (b === EOP) { const p = this.buf; this.buf = null; this.parse(p); continue; }
+      if (b === ESC) { this.esc = true; continue; }
+      if (this.esc) {
+        const orig = Object.keys(ESC_MAP).find(k => ESC_MAP[k] === b);
+        this.buf.push(orig !== undefined ? Number(orig) : b); this.esc = false;
+      } else this.buf.push(b);
+    }
+  }
+  parse(p) {
+    if (p.length < 5) return this.onError("trame trop courte", p);
+    const sum = p.slice(0, -1).reduce((s, b) => s + b, 0);
+    if (((~sum) & 0xFF) !== p[p.length - 1]) return this.onError("checksum invalide", p);
+    let i = 0; const flags = p[i++];
+    const pkt = {flags, raw: p};
+    if (flags & F.HAS_TID) pkt.tid = p[i++];
+    if (flags & F.HAS_SID) pkt.sid = p[i++];
+    pkt.did = p[i++]; pkt.cid = p[i++]; pkt.seq = p[i++];
+    pkt.isResponse = !!(flags & F.RESPONSE);
+    if (pkt.isResponse) pkt.err = p[i++];
+    pkt.data = p.slice(i, -1);
+    this.onPacket(pkt);
+  }
+}
+
+/* ============================================================
+   Journal
+   ============================================================ */
+const logEl = document.getElementById("log");
+const showRaw = document.getElementById("showRaw");
+function log(cls, msg) {
+  if ((cls === "tx" || cls === "rx") && !showRaw.checked) return;
+  const t = new Date().toLocaleTimeString("fr-FR", {hour12:false}) + "." + String(Date.now()%1000).padStart(3,"0");
+  const line = document.createElement("div");
+  line.className = cls; line.textContent = `${t}  ${msg}`;
+  logEl.appendChild(line);
+  if (logEl.childElementCount > 2000) logEl.firstChild.remove();
+  logEl.scrollTop = logEl.scrollHeight;
+}
+document.getElementById("btnClear").onclick = () => logEl.innerHTML = "";
+document.getElementById("btnCopy").onclick = () => navigator.clipboard.writeText(logEl.innerText).then(() => log("in", "Journal copié dans le presse-papiers"));
+
+/* ============================================================
+   Bague
+   ============================================================ */
+class Ring {
+  constructor(device) {
+    this.device = device; this.name = device.name || "(sans nom)";
+    this.seq = 0; this.pending = new Map(); this.queue = Promise.resolve();
+    this.reader = new PacketReader(p => this.onPacket(p), (m, p) => log("er", `[${this.name}] ${m} : ${hex(p)}`));
+    this.ui = null; this.lastTap = null;
+    device.addEventListener("gattserverdisconnected", () => this.onDisconnect());
+  }
+
+  async connect(attempt = 0) {
+    log("in", `[${this.name}] connexion GATT…`);
+    this.server = await this.device.gatt.connect();
+    this.reconnecting = false;
+    const short = u => u.startsWith("22bb746f") ? u.slice(0, 13) : u.slice(0, 8);
+    const props = c => ["read","write","writeWithoutResponse","notify","indicate"].filter(k => c.properties[k]).join(", ");
+
+    // 0) inventaire complet de ce que la bague expose
+    const chars = {};
+    let services = [];
+    try { services = await this.server.getPrimaryServices(); }
+    catch (e) { log("er", `[${this.name}] inventaire des services : ${e.name} – ${e.message}`); }
+    for (const s of services) {
+      let list = [];
+      try { list = await s.getCharacteristics(); } catch (e) { log("er", `  service ${s.uuid} : ${e.message}`); }
+      log("in", `[${this.name}] service ${s.uuid}`);
+      for (const c of list) { chars[c.uuid] = c; log("in", `    └ ${c.uuid}  (${props(c)})`); }
+    }
+    if (!services.length) log("er", `[${this.name}] aucun service visible`);
+
+    // helpers
+    const enc = s => new TextEncoder().encode(s);
+    const write = async (c, data) => (c.properties.write ? c.writeValueWithResponse(data) : c.writeValueWithoutResponse(data));
+    const tryWrite = async (uuid, data, label) => {
+      const c = chars[uuid]; if (!c) return false;
+      try { await write(c, data); log("in", `[${this.name}] ${label} ✓`); return true; }
+      catch (e) { log("er", `[${this.name}] ${label} : ${e.message}`); return false; }
+    };
+
+    // 1) déverrouillages (on tente les deux familles)
+    await tryWrite(UUID.antiDos, enc(ANTI_DOS), "anti-DOS V2 (usetheforce...band)");
+    await tryWrite(UUID.legAntiDos, enc(ANTI_DOS_LEGACY), "anti-DOS historique (011i3)");
+    await tryWrite(UUID.legTxPower, new Uint8Array([7]), "puissance radio");
+    await tryWrite(UUID.legWake, new Uint8Array([1]), "réveil (wake)");
+
+    // 1 ter) on s'abonne à TOUTES les caractéristiques « notify » (indispensable avant d'écrire sur 00020002)
+    for (const c of Object.values(chars)) {
+      if (!(c.properties.notify || c.properties.indicate)) continue;
+      const tag = short(c.uuid);
+      if (c._sdHandler) c.removeEventListener("characteristicvaluechanged", c._sdHandler);
+      c.addEventListener("characteristicvaluechanged", c._sdHandler = ev => {
+        const bytes = new Uint8Array(ev.target.value.buffer, ev.target.value.byteOffset, ev.target.value.byteLength);
+        const isPing = bytes[0] === SOP && bytes[3] === DID.API && bytes[4] === CMD.API_PING;
+        if (!isPing) log("rx", `[${this.name}] ⇠ (${tag}) ${hex(bytes)}`);
+        if (c === this.rxChar) this.reader.push(bytes);
+      });
+      try { await c.startNotifications(); log("in", `[${this.name}] notifications ${tag} ✓`); }
+      catch (e) { log("er", `[${this.name}] notifications ${tag} : ${e.message}`); }
+    }
+
+    // 1 bis) bague dans son bootloader ? → « saut vers l'application principale » (InitStepJumpToMainApp)
+    if (!chars[UUID.apiChar] && chars[UUID.dfuControl]) {
+      if (chars[UUID.dfuInfo]) {
+        try { const v = await chars[UUID.dfuInfo].readValue(); log("in", `[${this.name}] état DFU (00020004) : ${hex(new Uint8Array(v.buffer))}`); }
+        catch (e) { log("er", `[${this.name}] lecture état DFU : ${e.message}`); }
+      }
+      if (attempt >= 3) throw new Error("la bague reste dans son bootloader après 3 essais");
+      log("in", `[${this.name}] bague en mode bootloader → saut vers l'application principale…`);
+      this.reconnecting = true;
+      try { await chars[UUID.dfuControl].writeValueWithResponse(new Uint8Array([0x1E])); log("in", `[${this.name}] commande 0x1E envoyée`); }
+      catch (e) { log("er", `[${this.name}] commande de saut : ${e.message}`); }
+      await new Promise(r => setTimeout(r, 2500));
+      if (this.device.gatt.connected) this.device.gatt.disconnect();
+      await new Promise(r => setTimeout(r, 1000));
+      return this.connect(attempt + 1);
+    }
+
+    // 3) choix du canal de commande
+    if (chars[UUID.apiChar]) {
+      this.txChar = this.rxChar = chars[UUID.apiChar]; this.channel = "V2 (00010002)";
+    } else if (chars[UUID.legCommands]) {
+      this.txChar = chars[UUID.legCommands]; this.rxChar = chars[UUID.legResponses] || chars[UUID.legCommands];
+      this.channel = "historique (2ba1 → 2ba6)";
+    } else {
+      throw new Error("aucune caractéristique de commande connue — copiez-moi l'inventaire ci-dessus");
+    }
+    log("in", `[${this.name}] canal de commande : ${this.channel}`);
+    this.write = write;
+
+    // 4) séquence d'init : wake (dernière étape de InitStrategySpheroMini) puis RingsViewModel.setup
+    this.reader = new PacketReader(p => this.onPacket(p), (m, p) => log("er", `[${this.name}] ${m} : ${hex(p)}`));
+    await this.send(DID.POWER, CMD.POWER_WAKE).catch(e => log("er", `[${this.name}] wake : ${e.message}`));
+    await this.send(DID.IO, CMD.IO_ENABLE_COLOR_TAP, [1]).catch(e => log("er", `[${this.name}] activation taps : ${e.message}`));
+    await this.send(DID.POWER, CMD.POWER_ENABLE_BATT_NOTIFY, [1]).catch(() => {});
+    await this.send(DID.POWER, CMD.POWER_ENABLE_CHARGER_NOTIFY, [1]).catch(() => {});
+    await this.send(DID.IO, CMD.IO_LOAD_PALETTE, [0]).catch(e => log("er", `[${this.name}] chargement palette : ${e.message}`));
+    // keep-alive : ping toutes les 2 s (non journalisé)
+    clearInterval(this.pingTimer);
+    this.pingTimer = setInterval(() => { if (this.device.gatt.connected) this.send(DID.API, CMD.API_PING, [], true).catch(() => {}); }, 2000);
+    log("in", `[${this.name}] init terminée — tapotez une couleur et regardez le journal`);
+    this.refreshInfo();
+  }
+
+  async refreshInfo() {
+    try {
+      const v = await this.send(DID.SYSTEM, CMD.SYS_MAIN_VERSION);
+      if (v.data.length >= 6) this.fw = `${(v.data[0]<<8)|v.data[1]}.${(v.data[2]<<8)|v.data[3]}.${(v.data[4]<<8)|v.data[5]}`;
+    } catch (e) {}
+    try {
+      const s = await this.send(DID.POWER, CMD.POWER_BATT_STATE);
+      this.battery = BATTERY[s.data[0]] ?? s.data[0];
+    } catch (e) {}
+    try {
+      const c = await this.send(DID.POWER, CMD.POWER_CHARGER_STATE);
+      this.charger = CHARGER[c.data[0]] || `? (${c.data[0]})`;
+      if (c.data[0] === 2 || c.data[0] === 3) log("er", `[${this.name}] 🔌 bague sur son chargeur (${this.charger}) — retirez-la pour jouer : les taps sont désactivés pendant la charge`);
+    } catch (e) {}
+    try {
+      const p = await this.send(DID.IO, CMD.IO_GET_PALETTE);
+      this.palette = parsePalette(p.data);
+      if (this.palette.length) applyPaletteToPads(this.palette);
+    } catch (e) {}
+    renderRing(this);
+  }
+
+  send(did, cid, data = [], quiet = false) {
+    const seq = this.seq = (this.seq + 1) & 0xFF;
+    const pkt = encodePacket(did, cid, seq, data);
+    const label = NAMES[`${did}:${cid}`] || `${did}:${cid}`;
+    const done = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { this.pending.delete(seq); reject(new Error(`délai dépassé (${label})`)); }, 3000);
+      this.pending.set(seq, {resolve, reject, timer, label, quiet});
+    });
+    if (!this.txChar) return Promise.reject(new Error("bague non initialisée"));
+    this.queue = this.queue.then(async () => {
+      if (!quiet) log("tx", `[${this.name}] ⇢ ${label} ${hex(pkt)}`);
+      await this.write(this.txChar, pkt);
+    }).catch(e => log("er", `[${this.name}] écriture : ${e.message}`));
+    return done;
+  }
+
+  onPacket(p) {
+    const label = NAMES[`${p.did}:${p.cid}`] || `did ${p.did} cid ${p.cid}`;
+    if (p.isResponse && this.pending.has(p.seq)) {
+      const pend = this.pending.get(p.seq); this.pending.delete(p.seq); clearTimeout(pend.timer);
+      if (p.err) { log("er", `[${this.name}] ${label} → erreur ${p.err} (${ERR[p.err]||"?"})`); pend.reject(new Error(ERR[p.err]||p.err)); }
+      else { if (!pend.quiet) log("rx", `[${this.name}] ${label} → ok ${hex(p.data)}`); pend.resolve(p); }
+      return;
+    }
+    if (p.did === DID.IO && p.cid === CMD.IO_COLOR_TAP_EVENT && p.data.length >= 6) {
+      const [r, g, b, conf, id, intensity] = p.data;
+      const tap = {r, g, b, conf, id, intensity, released: intensity === 0};
+      this.lastTap = tap;
+      log("ev", `[${this.name}] TAP  couleur=${id === 255 ? "aucune (255)" : id}  rgb(${r},${g},${b})  confiance=${conf}  intensité=${intensity}${tap.released ? "  ← relâché" : ""}`);
+      renderRing(this, true);
+      onTap(this, tap);
+      return;
+    }
+    if (p.did === DID.POWER && p.cid === 0x1C) {          // batteryStateChanged
+      this.battery = BATTERY[p.data[0]] ?? p.data[0];
+      log(p.data[0] >= 2 ? "er" : "ev", `[${this.name}] 🔋 batterie : ${this.battery}${p.data[0] === 3 ? " — la bague va se mettre en veille, rechargez-la" : ""}`);
+      renderRing(this); return;
+    }
+    if (p.did === DID.POWER && p.cid === 0x21) {          // chargerStateChanged
+      this.charger = CHARGER[p.data[0]] ?? p.data[0];
+      log("ev", `[${this.name}] 🔌 chargeur : ${this.charger}${p.data[0] >= 2 ? " (taps désactivés pendant la charge)" : ""}`);
+      renderRing(this); return;
+    }
+    if (p.did === DID.POWER && (p.cid === 0x19 || p.cid === 0x1A)) {
+      log("er", `[${this.name}] 💤 ${p.cid === 0x19 ? "la bague va s'endormir" : "la bague s'est endormie"}`); return;
+    }
+    log("ev", `[${this.name}] notification ${label} : ${hex(p.data)}`);
+  }
+
+  onDisconnect() {
+    if (this.reconnecting) { log("in", `[${this.name}] redémarrage de la bague…`); return; }
+    clearInterval(this.pingTimer);
+    log("er", `[${this.name}] déconnectée`);
+    for (const {reject, timer} of this.pending.values()) { clearTimeout(timer); reject(new Error("déconnectée")); }
+    this.pending.clear(); this.connected = false; renderRing(this);
+  }
+}
+
+function parsePalette(data) {
+  // 12 entrées de 4 octets : index, R, G, B (ordre utilisé par l'app à l'écriture)
+  const out = [];
+  for (let i = 0; i + 3 < data.length; i += 4) out.push({index:data[i], r:data[i+1], g:data[i+2], b:data[i+3]});
+  return out;
+}
+
+/* ============================================================
+   Interface bagues
+   ============================================================ */
+const rings = [];
+const ringsEl = document.getElementById("rings");
+
+function renderRing(ring, hit = false) {
+  if (!ring.ui) {
+    if (!rings.length || ringsEl.querySelector(".help")) ringsEl.innerHTML = "";
+    ring.ui = document.createElement("div"); ring.ui.className = "ring";
+    ring.ui.innerHTML = `
+      <div class="swatch"></div>
+      <div><div><span class="dot"></span><b class="nm"></b></div><div class="meta"></div><div class="palette"></div></div>
+      <div class="row" style="flex-direction:column;align-items:stretch">
+        <button data-a="info">Infos</button>
+        <button data-a="pal">Palette par défaut</button>
+        <button data-a="sleep">Mettre en veille</button>
+        <button data-a="disc">Déconnecter</button>
+      </div>`;
+    ring.ui.querySelector('[data-a=info]').onclick = () => ring.refreshInfo();
+    ring.ui.querySelector('[data-a=pal]').onclick = async () => { await ring.send(DID.IO, CMD.IO_LOAD_PALETTE, [0]).catch(()=>{}); ring.refreshInfo(); };
+    ring.ui.querySelector('[data-a=sleep]').onclick = () => ring.send(DID.POWER, CMD.POWER_DEEP_SLEEP).catch(()=>{});
+    ring.ui.querySelector('[data-a=disc]').onclick = () => ring.device.gatt.disconnect();
+    ringsEl.appendChild(ring.ui);
+  }
+  const ui = ring.ui, t = ring.lastTap;
+  ui.querySelector(".nm").textContent = ring.name;
+  ui.querySelector(".dot").className = "dot " + (ring.connected ? "on" : "err");
+  ui.querySelector(".meta").innerHTML =
+    `firmware <b>${ring.fw || "?"}</b> · batterie <b>${ring.battery || "?"}</b> · chargeur <b>${ring.charger || "?"}</b>` +
+    (t ? `<br>dernier tap : couleur <b>${t.id === 255 ? "aucune" : t.id}</b> · confiance <b>${t.conf}</b> · intensité <b>${t.intensity}</b>` : "");
+  const sw = ui.querySelector(".swatch");
+  if (t) sw.style.background = `rgb(${t.r},${t.g},${t.b})`;
+  if (hit) { sw.classList.add("hit"); setTimeout(() => sw.classList.remove("hit"), 120); }
+  const pal = ui.querySelector(".palette");
+  pal.innerHTML = (ring.palette || []).map(c => `<span title="index ${c.index} rgb(${c.r},${c.g},${c.b})" style="background:rgb(${c.r},${c.g},${c.b})">${c.index}</span>`).join("");
+}
+
+document.getElementById("btnConnect").onclick = async () => {
+  ensureAudio();
+  try {
+    const opts = document.getElementById("acceptAll").checked
+      ? {acceptAllDevices:true, optionalServices:ALL_SERVICES}
+      : {filters:[{namePrefix:"SD-"}], optionalServices:ALL_SERVICES};
+    const device = await navigator.bluetooth.requestDevice(opts);
+    let ring = rings.find(r => r.device.id === device.id);
+    if (ring && device.gatt.connected) { log("in", `[${ring.name}] déjà connectée`); return; }
+    if (!ring) { ring = new Ring(device); rings.push(ring); }
+    renderRing(ring);
+    await ring.connect();
+    ring.connected = true; renderRing(ring);
+  } catch (e) {
+    if (/User cancelled/i.test(e.message)) log("in", "Sélection annulée");
+    else log("er", `Connexion : ${e.name} – ${e.message}`);
+  }
+};
+if (!navigator.bluetooth) { document.getElementById("noBle").hidden = false; document.getElementById("btnConnect").disabled = true; }
+
+/* ============================================================
+   Sons + pads
+   ============================================================ */
+let ctx = null;
+function ensureAudio() { if (!ctx) ctx = new AudioContext({latencyHint:"interactive"}); if (ctx.state === "suspended") ctx.resume(); }
+
+const DEFAULT_COLORS = ["#e53935","#fb8c00","#fdd835","#7cb342","#00897b","#039be5","#3949ab","#8e24aa","#d81b60","#6d4c41","#9e9e9e","#f5f5f5"];
+const pads = Array.from({length:12}, (_, i) => ({i, name:null, buffer:null, mode: i < 8 ? "hold" : "toggle", color: DEFAULT_COLORS[i], src:null, gain:null}));
+const padsEl = document.getElementById("pads");
+
+function renderPads() {
+  padsEl.innerHTML = "";
+  for (const p of pads) {
+    const el = document.createElement("div");
+    el.className = "pad" + (p.buffer ? "" : " empty") + (p.src ? " playing" : "");
+    el.innerHTML = `<span class="idx">${p.i}</span><span class="chip" style="background:${p.color}"></span>
+      <div><div class="name">${p.name || "— pas de son —"}</div><div class="mode">${p.mode === "hold" ? "maintien" : "bascule"}</div></div>`;
+    el.onmousedown = () => { ensureAudio(); trigger(p, false); };
+    el.onmouseup = el.onmouseleave = () => { if (p.mode === "hold" && p.src) stop(p); };
+    el.oncontextmenu = e => { e.preventDefault(); p.mode = p.mode === "hold" ? "toggle" : "hold"; renderPads(); };
+    p.el = el; padsEl.appendChild(el);
+  }
+}
+
+function applyPaletteToPads(pal) {
+  for (const c of pal) if (c.index < 12 && (c.r || c.g || c.b)) pads[c.index].color = `rgb(${c.r},${c.g},${c.b})`;
+  renderPads();
+}
+
+function play(p) {
+  const src = ctx.createBufferSource(); src.buffer = p.buffer; src.loop = true;
+  const gain = ctx.createGain(); gain.gain.value = 1;
+  src.connect(gain).connect(ctx.destination); src.start();
+  src.onended = () => { if (p.src === src) { p.src = null; p.el?.classList.remove("playing"); } };
+  p.src = src; p.gain = gain; p.el?.classList.add("playing");
+}
+function stop(p, fade = 0.08) {
+  if (!p.src) return;
+  const {src, gain} = p; const t = ctx.currentTime;
+  gain.gain.setValueAtTime(gain.gain.value, t); gain.gain.linearRampToValueAtTime(0, t + fade);
+  src.stop(t + fade + 0.01); p.src = null; p.el?.classList.remove("playing");
+}
+function trigger(p, released) {
+  if (!p.buffer) return;
+  if (p.mode === "hold") {
+    if (released) return stop(p);
+    if (!p.src) play(p);
+  } else {
+    if (released) return;
+    p.src ? stop(p) : play(p);
+  }
+  p.el?.classList.add("flash"); setTimeout(() => p.el?.classList.remove("flash"), 90);
+}
+
+function onTap(ring, tap) {
+  if (!ctx) return;
+  if (tap.id === 255) return;               // couleur non reconnue
+  const p = pads[tap.id]; if (!p) return;
+  trigger(p, tap.released);
+}
+
+document.getElementById("files").onchange = async e => {
+  ensureAudio();
+  const files = Array.from(e.target.files).filter(f => !/\.json$/i.test(f.name) && !/^nil_sound/i.test(f.name))
+                     .sort((a, b) => a.name.localeCompare(b.name, "fr", {numeric:true}));
+  let n = 0;
+  for (const f of files) {
+    const m = f.name.match(/^(\d{1,2})\s*-\s*(.+?)\.\w+$/);
+    const idx = m ? parseInt(m[1], 10) - 1 : n;
+    if (idx < 0 || idx > 11) continue;
+    try {
+      const buf = await ctx.decodeAudioData(await f.arrayBuffer());
+      Object.assign(pads[idx], {buffer: buf, name: m ? m[2] : f.name.replace(/\.\w+$/, "")});
+      n++;
+    } catch (err) { log("er", `Décodage impossible : ${f.name} (${err.message})`); }
+  }
+  log("in", `${n} son(s) chargé(s)`);
+  renderPads();
+};
+
+renderPads();
+log("in", "Prêt. 1) Charger les sons (sélectionner les 12 fichiers .m4a du dossier specdrums_sons). 2) Connecter une bague.");
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+# Ressources Sphero : jamais versionnées (usage privé uniquement)
+*.apk
+dist/
+packs/
+*.zip
+*.m4a
+*.wav
+*.flac
+__pycache__/
+.DS_Store
