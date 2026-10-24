@@ -1,0 +1,961 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Specdrums Mix</title>
+<style>
+@font-face{font-family:"BlockGothic";font-weight:300;src:url(%%A:BlockGothicRRLightCond.ttf%%) format("truetype")}
+@font-face{font-family:"BlockGothic";font-weight:500;src:url(%%A:BlockGothicRRMediumCond.ttf%%) format("truetype")}
+:root{
+  --bg:#0b0716; --toolbar:rgba(0,115,102,.35); --dialog:#170029; --dialog-border:#202031;
+  --nav-unsel:#bfbfbf; --nav-sel:#ffffff; --green:#85c2a7;
+  --tint-play:rgba(5,0,45,.24); --tint-library:rgba(0,29,86,.68); --tint-editor:rgba(255,255,255,.10); --tint-mysongs:rgba(94,0,87,.68); --tint-record:rgba(128,0,0,.55);
+  --toolbar-h:56px; --nav-h:84px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:#fff;font-family:"BlockGothic",system-ui,sans-serif;font-weight:300;user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+img{display:block}
+
+/* ---------- fond ---------- */
+#bg{position:fixed;inset:0;z-index:0;background:radial-gradient(120% 90% at 50% 45%,#1d1236 0%,#0b0716 70%)}
+#tint{position:absolute;inset:0;transition:background-color .4s}
+#bg .facet{position:absolute;left:0;width:100%;opacity:.9;pointer-events:none}
+#bg .facet.top{top:0} #bg .facet.bottom{bottom:0}
+
+/* ---------- barre du haut ---------- */
+#toolbar{position:fixed;top:0;left:0;right:0;height:var(--toolbar-h);z-index:5;background:var(--toolbar);display:flex;align-items:center;padding-top:env(safe-area-inset-top)}
+#btnConnect{display:flex;align-items:center;gap:10px;padding:0 16px;height:100%;position:relative;min-width:220px}
+#btnConnect img{width:30px;height:auto}
+#btnConnect span{font-size:20px;letter-spacing:.5px;text-transform:uppercase}
+#ringCount{position:absolute;left:34px;top:6px;min-width:20px;height:20px;border-radius:10px;background:#00a651;font:500 13px/20px "BlockGothic";text-align:center;padding:0 5px;display:none}
+#title{flex:1;text-align:center;font-size:26px;letter-spacing:1px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#toolbarRight{min-width:220px;display:flex;justify-content:flex-end;align-items:center;gap:14px;padding-right:16px}
+#toolbarRight img{width:30px;height:30px;object-fit:contain}
+#rec-dot{display:none;align-items:center;gap:8px;font-size:20px;color:#ff5a5a}
+#rec-dot::before{content:"";width:12px;height:12px;border-radius:50%;background:#ff3b3b;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.2}}
+
+/* ---------- zone pads ---------- */
+#stage{position:fixed;left:0;right:0;top:var(--toolbar-h);bottom:var(--nav-h);z-index:1;display:flex;align-items:center;justify-content:center;padding:0 20px}
+#pads{width:min(100%,1180px,calc((100vh - var(--toolbar-h) - var(--nav-h) - 40px) * 2.45));display:flex;flex-direction:column;align-items:stretch}
+/* le tapis Specdrums : fond noir, 4 pavés clairs en haut entre deux blocs logo, 8 pavés numérotés en bas */
+#mat{--g:clamp(3px,.55vw,7px);background:#0d0d0f;border-radius:clamp(8px,1.2vw,16px);padding:calc(var(--g)*1.6);display:flex;flex-direction:column;gap:var(--g);box-shadow:0 18px 50px #000a,inset 0 0 0 1px #ffffff10;-webkit-box-reflect:below 8px linear-gradient(transparent 62%,rgba(255,255,255,.2))}
+.corner{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.iconBtn{width:36px;height:36px;display:grid;place-items:center;border-radius:50%}
+.iconBtn img{width:28px;height:28px;object-fit:contain}
+#helpBtn{border:2px solid #fff;font:500 22px/1 "BlockGothic";width:32px;height:32px}
+#resetColors{visibility:hidden}
+body.editor #resetColors{visibility:visible}
+.row{display:grid;gap:var(--g)}
+#topRow{grid-template-columns:.66fr repeat(4,1.67fr) .66fr;aspect-ratio:8/.66}
+#bottomRow{grid-template-columns:repeat(8,1fr);aspect-ratio:8/1.42}
+#topRow .corner.left{grid-column:1;grid-row:1}#topRow .corner.right{grid-column:6;grid-row:1}
+.pad{position:relative;cursor:pointer;touch-action:none}
+.pad .face{position:absolute;inset:0;border-radius:3px;background:var(--c);transition:filter .35s ease-out,box-shadow .35s ease-out}
+.pad.hit .face{filter:brightness(1.45) saturate(1.1);transition:none;box-shadow:0 0 34px var(--c),0 0 0 2px #fff inset}
+.pad.on .face{box-shadow:0 0 22px var(--c),0 0 0 3px #ffffffd0 inset;animation:onpulse 1.6s ease-in-out infinite}
+@keyframes onpulse{50%{filter:brightness(1.18)}}
+.pad .num{position:absolute;left:8%;bottom:5%;font:500 clamp(18px,2.6vw,38px)/1 "BlockGothic";color:#fff;opacity:.88;pointer-events:none}
+.pad .sym{position:absolute;left:5%;top:12%;width:clamp(14px,1.7vw,24px);height:auto;pointer-events:none;opacity:.95}
+.pad .loop{position:absolute;right:8px;bottom:8px;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.47);padding:2px;display:none}
+.pad.isloop .loop{display:block}
+.pad .loop i{display:block;width:100%;height:100%;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p,0)*1turn),transparent 0);-webkit-mask:radial-gradient(circle,transparent 52%,#000 54%);mask:radial-gradient(circle,transparent 52%,#000 54%)}
+.pad .label{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:15px;line-height:1.05;padding:0 6px;color:#fff;text-shadow:0 1px 3px #000a;opacity:0;transition:opacity .2s;pointer-events:none}
+body.editor .pad .label,body.showlabels .pad .label{opacity:.95}
+.pad .key{position:absolute;right:7px;top:5px;font:500 13px "BlockGothic";color:#fff;opacity:.6;pointer-events:none;text-shadow:0 1px 2px #0008}
+.pad .edited{position:absolute;left:50%;top:50%;width:34px;height:34px;transform:translate(-50%,-60%);opacity:0;pointer-events:none}
+body.editor .pad .edited{opacity:.9}
+body.editor .pad .face{animation:wiggle 2.4s ease-in-out infinite}
+#helpBtn{width:clamp(24px,2.4vw,32px);height:clamp(24px,2.4vw,32px);font-size:clamp(16px,1.6vw,22px)}
+.corner .iconBtn img{width:clamp(20px,2.2vw,28px);height:auto}
+@keyframes wiggle{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
+#hint{margin-top:30vh;text-align:center;font-size:18px;color:#cfd0e6;opacity:.75;position:absolute;left:0;right:0;bottom:calc(var(--nav-h) + 14px);pointer-events:none}
+
+/* ---------- barre du bas ---------- */
+#nav{position:fixed;left:0;right:0;bottom:0;height:var(--nav-h);z-index:5;background:var(--toolbar);display:grid;grid-template-columns:repeat(4,1fr);padding-bottom:env(safe-area-inset-bottom)}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--nav-unsel);position:relative}
+.tab img{width:38px;height:34px;object-fit:contain;opacity:.75}
+.tab span{font-size:20px;letter-spacing:.4px}
+.tab.sel{color:var(--nav-sel);background:rgba(185,185,185,.22)}
+.tab.sel img{opacity:1}
+.tab.sel::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#fff}
+.tab.recording{color:#fff;background:rgba(160,0,0,.6)}
+
+/* ---------- panneaux (bibliothèque / ma musique) ---------- */
+.panel{position:fixed;left:0;right:0;top:var(--toolbar-h);bottom:var(--nav-h);z-index:3;display:none;overflow:auto;padding:28px 24px}
+.panel.open{display:block}
+.panel h2{font-weight:500;font-size:28px;margin:0 0 18px;letter-spacing:1px}
+.packs{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px}
+.pack{background:#0006;border:1.5px solid #ffffff30;border-radius:4px;overflow:hidden;cursor:pointer}
+.pack.sel{border-color:var(--green);box-shadow:0 0 0 2px var(--green)}
+.pack img{width:100%;aspect-ratio:1;object-fit:cover}
+.pack .meta{padding:10px 12px 12px}
+.pack .name{font:500 22px "BlockGothic";letter-spacing:.5px}
+.pack .sub{font-size:16px;color:#cfd0e6}
+.pack.locked{opacity:.38;cursor:default}
+.pack .art{width:100%;aspect-ratio:1;object-fit:cover;background:#ffffff08;display:grid;place-items:center;font-size:40px}
+.pack.loading{opacity:.6;pointer-events:none}
+.note{font-size:16px;color:#cfd0e6;margin-top:22px;max-width:780px;line-height:1.35}
+.songs{display:grid;gap:10px;max-width:880px}
+.song{display:flex;align-items:center;gap:14px;background:#0006;border:1.5px solid #ffffff22;border-radius:4px;padding:10px 14px}
+.song .t{flex:1;font-size:21px}
+.song .d{color:#cfd0e6;font-size:17px;min-width:60px;text-align:right}
+.song button img{width:34px;height:34px}
+.empty{font-size:20px;color:#cfd0e6}
+
+/* ---------- boîtes de dialogue ---------- */
+.modal{position:fixed;inset:0;z-index:10;background:#000a;display:none;align-items:center;justify-content:center;padding:20px}
+.modal.open{display:flex}
+.dialog{background:var(--dialog);border:2px solid var(--dialog-border);border-radius:6px;width:min(640px,100%);max-height:calc(100vh - 40px);display:flex;flex-direction:column;box-shadow:0 20px 60px #000c}
+.dialog header{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid #ffffff14}
+.dialog header h3{flex:1;margin:0;font:500 26px "BlockGothic";letter-spacing:1px;text-transform:uppercase}
+.dialog header button img{width:22px;height:22px}
+.dialog .body{padding:16px 18px;overflow:auto}
+.dialog footer{display:flex;justify-content:center;gap:14px;padding:14px 18px 18px}
+.btn{min-width:150px;height:46px;border-radius:23px;border:2px solid #4c5c66;background:#202031;font:500 20px "BlockGothic";letter-spacing:.6px;padding:0 20px;text-transform:uppercase}
+.btn.green{border-color:#2ecc40;background:#00591a}
+.btn:disabled{opacity:.4}
+.tabs2{display:grid;grid-template-columns:1fr 1fr;margin-bottom:14px;border-radius:4px;overflow:hidden}
+.tabs2 button{height:42px;background:#292145;font:500 20px "BlockGothic";letter-spacing:.5px}
+.tabs2 button.sel{background:#aaaac7;color:#170029}
+.soundList{display:grid;gap:6px}
+.soundList .cat{font:500 16px "BlockGothic";color:#aaaac7;margin:8px 0 2px;letter-spacing:1px}
+.soundItem{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:4px;background:#ffffff0d;font-size:19px;cursor:pointer}
+.soundItem.sel{background:#aaaac7;color:#170029}
+.soundItem small{margin-left:auto;font-size:14px;opacity:.75}
+.swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.swatch{aspect-ratio:1;border-radius:4px;border:2px solid transparent;cursor:pointer}
+.swatch.sel{border-color:#fff;box-shadow:0 0 0 2px #000 inset}
+.scanBox{display:flex;align-items:center;gap:14px;margin-top:16px;padding:12px;border-radius:4px;background:#ffffff0d;font-size:18px;line-height:1.25}
+.scanBox img{width:64px}
+.scanBox .prev{width:46px;height:46px;border-radius:50%;border:2px solid #fff;flex:none}
+.scanBox.waiting{outline:2px dashed #aaaac7;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{outline-color:transparent}}
+.ringList{display:grid;gap:10px}
+.ringItem{display:flex;align-items:center;gap:14px;padding:10px 12px;border-radius:4px;background:#ffffff0d}
+.ringItem .ico{width:44px;height:44px;border-radius:50%;border:3px solid #555;background:#000}
+.ringItem .n{font:500 22px "BlockGothic"}
+.ringItem .s{font-size:16px;color:#cfd0e6}
+.ringItem .grow{flex:1}
+.ringItem img.bat{width:22px;height:auto}
+.field{display:flex;align-items:center;gap:14px;margin:10px 0;font-size:19px}
+.field label{flex:1}
+.field input[type=range]{width:220px;accent-color:#aaaac7}
+.field input[type=checkbox]{width:22px;height:22px;accent-color:#aaaac7}
+.keys{font-size:17px;line-height:1.5;color:#cfd0e6}
+.keys b{display:inline-block;min-width:24px;padding:0 5px;margin:0 1px;border:1px solid #aaaac7;border-radius:3px;text-align:center;color:#fff;font-weight:500}
+#log{height:220px;overflow:auto;font:12px/1.45 ui-monospace,Menlo,monospace;background:#0008;border-radius:4px;padding:8px;white-space:pre-wrap;word-break:break-all;color:#c9cdd6;user-select:text;-webkit-user-select:text}
+.help{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+.help img{width:100%;border-radius:4px}
+.help p,.helpText p{font-size:18px;line-height:1.3;margin:6px 0}
+.helpText h4{font:500 20px "BlockGothic";margin:14px 0 4px;letter-spacing:.6px}
+
+/* ---------- compte à rebours / toasts ---------- */
+#countdown{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:#0008;font:500 200px "BlockGothic"}
+#toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 18px);transform:translateX(-50%);z-index:30;background:#170029ee;border:1.5px solid #aaaac7;border-radius:22px;padding:10px 22px;font-size:19px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1}
+#splash{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:radial-gradient(120% 90% at 50% 45%,#1d1236 0%,#0b0716 70%);cursor:pointer}
+#splash img{width:min(420px,70vw)}
+#splash span{font-size:24px;letter-spacing:1px;color:#cfd0e6}
+
+@media (max-width:760px){
+  :root{--toolbar-h:48px;--nav-h:70px}
+  #btnConnect{min-width:0}#btnConnect span{display:none}#toolbarRight{min-width:0}
+  #title{font-size:20px}.tab span{font-size:15px}.tab img{width:30px;height:26px}
+  #stage{padding:0 10px}
+}
+</style>
+</head>
+<body>
+<div id="bg"><div id="tint"></div><img class="facet top" src="%%A:background_facets_top.webp%%" alt=""><img class="facet bottom" src="%%A:background_facets_bottom.webp%%" alt=""></div>
+
+<div id="toolbar">
+  <button id="btnConnect" title="Connecter ou déconnecter tes anneaux"><img src="%%A:icon_connect.png%%" alt=""><span id="connectLabel">SE CONNECTER</span><b id="ringCount">0</b></button>
+  <div id="title">LIRE</div>
+  <div id="toolbarRight"><span id="rec-dot">REC</span><button id="btnSettings" class="iconBtn" title="Menu Paramètres"><img src="%%A:icon_settings.png%%" alt="Paramètres"></button></div>
+</div>
+
+<div id="stage">
+  <div id="pads">
+    <div id="mat">
+      <div id="topRow" class="row">
+        <div class="corner left"><button id="helpBtn" class="iconBtn" title="Afficher l'aide">?</button><button id="resetColors" class="iconBtn" title="Rétablir toutes les couleurs du pavé par défaut"><img src="%%A:icon_reset_colors.png%%" alt=""></button></div>
+        <div class="corner right"><button id="muteBtn" class="iconBtn" title="Activer/désactiver la musique"><img id="muteImg" src="%%A:ic_unmuted.png%%" alt=""></button></div>
+      </div>
+      <div id="bottomRow" class="row"></div>
+    </div>
+  </div>
+</div>
+<div id="hint"></div>
+
+<section id="panel-library" class="panel">
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px"><h2 style="margin:0;flex:1">GROUPES DE SONS</h2>
+    <label class="btn green" style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer">IMPORTER DES PACKS (.ZIP)<input type="file" id="importPacks" accept=".zip,application/zip" multiple hidden></label>
+    <button class="btn" id="clearPacks">SUPPRIMER LES PACKS</button></div>
+  <p class="note" id="packsNote" style="margin:0 0 18px"></p>
+  <div class="packs" id="packs"></div>
+</section>
+<section id="panel-mysongs" class="panel">
+  <h2>MA MUSIQUE</h2>
+  <div class="songs" id="songs"></div>
+</section>
+
+<nav id="nav">
+  <button class="tab" data-tab="library"><img src="%%A:ic_tab_library.png%%" alt=""><span>BIBLIOTHÈQUE</span></button>
+  <button class="tab" data-tab="editor"><img src="%%A:ic_tab_editor.png%%" alt=""><span>ÉDITEUR</span></button>
+  <button class="tab" data-tab="mysongs"><img src="%%A:ic_tab_my_music.png%%" alt=""><span>MA MUSIQUE</span></button>
+  <button class="tab" data-tab="record" id="tabRecord"><img id="recImg" src="%%A:ic_tab_record.png%%" alt=""><span id="recLabel">ENREGISTRER</span></button>
+</nav>
+
+<!-- Éditeur de pavé -->
+<div class="modal" id="mEdit"><div class="dialog">
+  <header><h3 id="editTitle">PAVÉ</h3><button data-close><img src="%%A:ic_close.png%%" alt="Fermer"></button></header>
+  <div class="body">
+    <div class="tabs2"><button data-et="sound" class="sel">SON</button><button data-et="color">COULEUR</button></div>
+    <div id="etSound"><div class="soundList" id="soundList"></div>
+      <div style="margin-top:14px;display:flex;gap:10px;align-items:center"><label class="btn" style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer">IMPORTER UN SON…<input type="file" id="importSound" accept="audio/*" hidden></label><span class="keys" style="font-size:15px">Ton propre échantillon (non conservé après fermeture)</span></div>
+    </div>
+    <div id="etColor" hidden>
+      <div class="swatches" id="swatches"></div>
+      <div class="scanBox" id="scanBox"><img src="%%A:tap_finger.png%%" alt=""><div style="flex:1"><b>Scanner une couleur</b><br>Tape un objet avec ton anneau connecté : sa couleur sera attribuée à ce pavé.</div><div class="prev" id="scanPrev"></div></div>
+    </div>
+  </div>
+  <footer><button class="btn" id="editPreview">ÉCOUTER</button><button class="btn green" data-close>TERMINÉ</button></footer>
+</div></div>
+
+<!-- Anneaux -->
+<div class="modal" id="mRings"><div class="dialog">
+  <header><h3>ANNEAUX</h3><button data-close><img src="%%A:ic_close.png%%" alt="Fermer"></button></header>
+  <div class="body"><div class="ringList" id="ringList"></div><p class="keys" id="bleNote"></p></div>
+  <footer><button class="btn green" id="addRing">+ CONNECTER UN ANNEAU</button></footer>
+</div></div>
+
+<!-- Paramètres -->
+<div class="modal" id="mSettings"><div class="dialog">
+  <header><h3>PARAMÈTRES</h3><button data-close><img src="%%A:ic_close.png%%" alt="Fermer"></button></header>
+  <div class="body">
+    <div class="field"><label>Volume</label><input type="range" id="volume" min="0" max="1" step="0.01" value="0.9"></div>
+    <div class="field"><label>Tempo du groupe de sons</label><span id="bpmLabel">150 BPM</span></div>
+    <div class="field"><label>Afficher le nom des sons sur les pavés</label><input type="checkbox" id="showLabels"></div>
+    <div class="field"><label>Afficher le journal Bluetooth</label><input type="checkbox" id="showLog"></div>
+    <div class="field"><label>Journal détaillé (trames brutes)</label><input type="checkbox" id="rawLog"></div>
+    <div id="logWrap" hidden><div id="log"></div><div style="margin-top:8px;display:flex;gap:10px"><button class="btn" id="copyLog">COPIER</button><button class="btn" id="clearLog">VIDER</button></div></div>
+    <h4 style="font:500 20px BlockGothic;margin:18px 0 6px">CLAVIER (sans anneau)</h4>
+    <div class="keys">Boucles : <b>1</b><b>2</b><b>3</b><b>4</b> &nbsp; Sons : <b>Q</b><b>S</b><b>D</b><b>F</b><b>G</b><b>H</b><b>J</b><b>K</b> (clavier AZERTY, rangée du milieu)<br>Maintenir la touche = maintenir l'anneau posé. Espace : couper toutes les boucles.</div>
+    <div style="margin-top:18px"><button class="btn" id="resetAll">RÉINITIALISER LES PAVÉS</button></div>
+  </div>
+</div></div>
+
+<!-- Aide -->
+<div class="modal" id="mHelp"><div class="dialog" style="width:min(820px,100%)">
+  <header><h3>COMMENT JOUER</h3><button data-close><img src="%%A:ic_close.png%%" alt="Fermer"></button></header>
+  <div class="body">
+    <div class="help"><img src="%%A:how_to_play_1.jpg%%" alt=""><img src="%%A:how_to_play_2.jpg%%" alt=""><img src="%%A:how_to_play_3.jpg%%" alt=""></div>
+    <div class="helpText">
+      <h4>COMMANDES DE LECTURE</h4><p>Joue de la musique en tapant sur une surface en couleur avec ton anneau connecté. Chaque couleur active ou désactive des boucles ou permet de lire des échantillons audio, que tu peux personnaliser dans l'Éditeur.</p>
+      <p>Les 4 pavés du haut sont des boucles : la première boucle activée donne le tempo des suivantes. Les 8 pavés du bas jouent des sons ; certains continuent tant que l'anneau reste posé.</p>
+      <h4>COMMANDES DE L'ÉDITEUR</h4><p>Appuie sur un des pavés à l'écran pour lui attribuer une couleur, un son ou ton propre échantillon audio.</p>
+      <h4>COMMANDES D'ENREGISTREMENT</h4><p>L'enregistrement débute automatiquement après le décompte. Appuie sur le bouton Arrêter une fois que tu as terminé pour enregistrer ou partager ton morceau.</p>
+    </div>
+  </div>
+  <footer><button class="btn green" data-close>TERMINÉ</button></footer>
+</div></div>
+
+<div id="countdown"></div>
+<div id="toast"></div>
+<div id="splash"><img src="%%A:logo_specdrums.png%%" alt="specdrums"><span>TOUCHE L'ÉCRAN POUR COMMENCER</span></div>
+
+<script>
+"use strict";
+/* ======================================================================
+   Données intégrées
+   ====================================================================== */
+const PACK = /*%%PACK%%*/null;
+const IMG = {unmuted:"%%A:ic_unmuted.png%%", muted:"%%A:ic_muted.png%%", rec:"%%A:ic_tab_record.png%%", recStop:"%%A:ic_tab_record_stop.png%%",
+  batG:"%%A:icon_battery_green.png%%", batY:"%%A:icon_battery_yellow.png%%", batR:"%%A:icon_battery_red.png%%", batU:"%%A:icon_battery_unknown.png%%",
+  play:"%%A:ic_sample_recording_play.png%%", stop:"%%A:ic_sample_recording_stop.png%%", save:"%%A:ic_sample_recording_save.png%%", del:"%%A:ic_sample_recording_delete.png%%",
+  edited:"%%A:ic_pad_edited.png%%", packArt:"%%A:intro.jpg%%"};
+
+// Palette d'usine des anneaux (lue sur un anneau, firmware 4.2.470)
+const DEFAULT_PALETTE = [[0xe4,0x35,0x40],[0xfb,0xab,0x19],[0xfc,0xee,0x21],[0x74,0xc0,0x44],[0x00,0xa1,0x82],[0x00,0x7b,0xc2],
+                         [0x7e,0x4f,0x9a],[0xca,0x57,0xa0],[0xf6,0x92,0x78],[0xfe,0xc6,0x79],[0xb1,0xd8,0x9c],[0x87,0x9e,0xcf]];
+// Couleurs d'affichage relevées sur le tapis Specdrums (photo) — l'anneau, lui, garde sa palette de détection
+const MAT_COLORS = [[0xe8,0x33,0x4a],[0xf2,0x9e,0x4c],[0xf2,0xd2,0x4a],[0x8c,0xbf,0x4c],[0x14,0x7a,0x68],[0x14,0x5c,0x96],[0x60,0x3a,0x6e],[0xa3,0x33,0x6b],
+                    [0xf4,0xa3,0xb6],[0xee,0xc4,0xb2],[0xb3,0xd6,0xc0],[0x80,0xa7,0xce]];
+const MAT_SYMBOLS = [
+  '<svg viewBox="0 0 24 24"><path d="M12 3 22 20H2z" fill="#fff"/></svg>',
+  '<svg viewBox="0 0 24 24"><path d="M12 2 21 12 12 22 3 12z" fill="#fff"/></svg>',
+  '<svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.2 5.8 20.9l1.6-7L2 9.2l7.1-.6z" fill="#fff"/></svg>',
+  '<svg viewBox="0 0 24 24"><path d="M12 2 20.7 7v10L12 22 3.3 17V7z" fill="#fff"/></svg>'];
+const CATEGORIES = {0:"BATTERIE",1:"BASSE",2:"MÉLODIE",3:"PERCUSSIONS",4:"VOIX",5:"EFFETS"};
+const KEYMAP = {KeyA:0,KeyS:1,KeyD:2,KeyF:3,KeyG:4,KeyH:5,KeyJ:6,KeyK:7,Digit1:8,Digit2:9,Digit3:10,Digit4:11};
+const KEYLABEL = ["Q","S","D","F","G","H","J","K","1","2","3","4"];
+const $ = s => document.querySelector(s);
+const store = {get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}, set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+/* ======================================================================
+   État des pavés
+   ====================================================================== */
+let SOUNDS = {};                         // id -> {id,name,category,type,sustainable,quantization,buffer}
+const defaultPreset = info => { const ps = Object.values(info.presets || {}); return (ps.find(x => x.name === "Default") || ps[0]).soundIDs; };
+let current = {id:"builtin", info: PACK.info, builtin:true};
+let presetIds = defaultPreset(PACK.info);
+const pads = Array.from({length:12}, (_, i) => ({i, color: DEFAULT_PALETTE[i].slice(), soundId: presetIds[i], el:null}));
+(function restoreColors(){
+  // v2 : on repart de la palette du tapis (les anciens réglages de couleur, issus des essais, sont ignorés)
+  const c = store.get("sdmix.colors.v2", null);
+  if (c && c.length === 12) c.forEach((col, i) => { if (col) pads[i].color = col; });
+})();
+const savePads = () => { store.set("sdmix.colors.v2", pads.map(p => p.color)); store.set("sdmix.sounds." + current.id, pads.map(p => String(p.soundId).startsWith("custom:") ? presetIds[p.i] : p.soundId)); };
+const isDefaultColor = p => p.color.every((v, k) => v === DEFAULT_PALETTE[p.i][k]);
+// couleur affichée : celle du tapis tant que le pavé garde sa couleur d'usine (les deux palettes se correspondent index par index)
+const displayColor = p => { const k = DEFAULT_PALETTE.findIndex(c => c.join() === p.color.join()); return k >= 0 ? MAT_COLORS[k] : p.color; };
+const soundOf = p => SOUNDS[p.soundId];
+const b64buf = s => Uint8Array.from(atob(s), c => c.charCodeAt(0)).buffer;
+
+/* ======================================================================
+   Groupes de sons : pack intégré + packs importés (IndexedDB)
+   ====================================================================== */
+const lib = {catalog:null, keys:new Set(), urls:new Map()};
+const packAvailable = id => { const p = lib.catalog?.packs?.[id]; return !!p && Object.values(p.sounds || {}).every(s => lib.keys.has(s.soundPath)); };
+const packName = info => (info.localization?.fr || info.name || "").trim();
+async function loadPack(id) {
+  let info, builtin = false;
+  if (id === "builtin" || !packAvailable(id)) { id = "builtin"; info = PACK.info; builtin = true; } else info = lib.catalog.packs[id];
+  if (audio.loops.running) audio.stopAllLoops();
+  for (const p of pads) audio.release(p, true);
+  const fresh = {};
+  await Promise.all(Object.entries(info.sounds || {}).map(async ([sid, s]) => {
+    const ns = fresh[sid] = {id:sid, name:(s.name || "").trim(), category:s.category, type:s.type, sustainable:!!s.sustainable, quantization:s.quantization || 0, buffer:null};
+    try {
+      const ab = builtin ? b64buf(PACK.files[s.soundPath.split("/").pop()]) : await (await db.getFile(s.soundPath)).arrayBuffer();
+      ns.buffer = await audio.ctx.decodeAudioData(ab);
+    } catch (e) { console.warn("décodage", s.name, e); }
+  }));
+  for (const [k, v] of Object.entries(SOUNDS)) if (k === "__nil" || k.startsWith("custom:")) fresh[k] = v;
+  SOUNDS = fresh; current = {id, info, builtin};
+  presetIds = defaultPreset(info);
+  const saved = store.get("sdmix.sounds." + id, null);
+  pads.forEach(p => { const sid = saved?.[p.i]; p.soundId = (sid && SOUNDS[sid]) ? sid : presetIds[p.i]; });
+  audio.bpm = info.bpm || 120; $("#bpmLabel").textContent = `${audio.bpm} BPM`;
+  store.set("sdmix.pack", id);
+  pads.forEach(p => p.el && renderPad(p)); renderPacks();
+}
+
+/* ======================================================================
+   Moteur audio (reprend AudioEngine de l'app d'origine)
+   - toutes les boucles démarrent ensemble, muettes, au 1er déclenchement
+   - activer/désactiver une boucle = monter/couper son volume
+   - les échantillons sont calés sur la grille (double-croche, etc.)
+   ====================================================================== */
+const audio = {
+  ctx:null, master:null, recDest:null, bpm: PACK.info.bpm || 120,
+  loops:{running:false, t0:0, voices:new Map()}, // soundId -> {src,gain}
+  held:new Map(),                                 // padIndex -> {src,gain}
+  async init() {
+    if (this.ctx) { if (this.ctx.state === "suspended") await this.ctx.resume(); return; }
+    this.ctx = new AudioContext({latencyHint:"interactive"});
+    this.master = this.ctx.createGain(); this.master.gain.value = store.get("sdmix.volume", 0.9);
+    this.master.connect(this.ctx.destination);
+    this.recDest = this.ctx.createMediaStreamDestination(); this.master.connect(this.recDest);
+    try { SOUNDS.__nil = {id:"__nil", name:"Couleur inconnue", type:0, buffer: await this.ctx.decodeAudioData(b64buf(PACK.files["nil_sound.wav"]))}; } catch (e) {}
+    await libReady;
+    await loadPack(store.get("sdmix.pack", "builtin"));
+  },
+  grid(q) { const beat = 60 / this.bpm; return {5:beat, 7:beat/2, 9:beat/4}[q] || 0; },
+  nextStart(q) {
+    const now = this.ctx.currentTime + 0.005, g = this.grid(q);
+    if (!g || !this.loops.running) return now;
+    const k = Math.ceil((now - this.loops.t0) / g - 1e-6);
+    return this.loops.t0 + k * g;
+  },
+  loopPads() { return pads.filter(p => soundOf(p)?.type === 1); },
+  startAllLoopsMuted() {
+    const t = this.ctx.currentTime + 0.03;
+    this.loops.t0 = t; this.loops.running = true;
+    for (const p of this.loopPads()) {
+      const s = soundOf(p); if (!s.buffer || this.loops.voices.has(s.id)) continue;
+      const src = this.ctx.createBufferSource(); src.buffer = s.buffer; src.loop = true;
+      const gain = this.ctx.createGain(); gain.gain.value = 0;
+      src.connect(gain).connect(this.master); src.start(t);
+      this.loops.voices.set(s.id, {src, gain, on:false, pad:p.i});
+    }
+  },
+  stopAllLoops() {
+    const t = this.ctx.currentTime;
+    for (const v of this.loops.voices.values()) { v.gain.gain.setTargetAtTime(0, t, 0.02); v.src.stop(t + 0.15); }
+    this.loops.voices.clear(); this.loops.running = false;
+    pads.forEach(p => p.el?.classList.remove("on"));
+  },
+  toggleLoop(p) {
+    const s = soundOf(p); if (!s?.buffer) return;
+    if (!this.loops.running) this.startAllLoopsMuted();
+    let v = this.loops.voices.get(s.id);
+    if (!v) { // son de boucle modifié pendant la lecture : on l'ajoute calé sur t0
+      const src = this.ctx.createBufferSource(); src.buffer = s.buffer; src.loop = true;
+      const gain = this.ctx.createGain(); gain.gain.value = 0; src.connect(gain).connect(this.master);
+      const off = (this.ctx.currentTime - this.loops.t0) % s.buffer.duration;
+      src.start(this.ctx.currentTime, Math.max(0, off)); v = {src, gain, on:false, pad:p.i}; this.loops.voices.set(s.id, v);
+    }
+    const t = this.ctx.currentTime;
+    v.on = !v.on;
+    v.gain.gain.cancelScheduledValues(t); v.gain.gain.setTargetAtTime(v.on ? 1 : 0, t, 0.008);
+    p.el.classList.toggle("on", v.on);
+    if (![...this.loops.voices.values()].some(x => x.on)) this.stopAllLoops();
+  },
+  playSample(p, sound = soundOf(p)) {
+    if (!sound?.buffer) return;
+    const when = this.nextStart(sound.quantization);
+    const src = this.ctx.createBufferSource(); src.buffer = sound.buffer;
+    const gain = this.ctx.createGain(); src.connect(gain).connect(this.master);
+    if (sound.sustainable && p) {
+      this.release(p, true);
+      src.loop = true; this.held.set(p.i, {src, gain});
+      src.onended = () => { if (this.held.get(p.i)?.src === src) this.held.delete(p.i); };
+    }
+    src.start(when);
+  },
+  release(p, immediate = false) {
+    const h = this.held.get(p.i); if (!h) return;
+    this.held.delete(p.i);
+    const t = this.ctx.currentTime, f = immediate ? 0.01 : 0.06;
+    h.gain.gain.setTargetAtTime(0, t, f / 3); h.src.stop(t + f + 0.05);
+  },
+};
+
+/* ======================================================================
+   Pavés : rendu + interactions
+   ====================================================================== */
+const rgb = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+function buildPads() {
+  const top = $("#topRow"), bottom = $("#bottomRow"); top.querySelectorAll(".pad").forEach(x => x.remove()); bottom.innerHTML = "";
+  for (const p of pads) {
+    const el = document.createElement("div"); el.className = "pad";
+    const mark = p.i < 8 ? `<span class="num">${p.i + 1}</span>` : MAT_SYMBOLS[p.i - 8].replace("<svg", '<svg class="sym"');
+    el.innerHTML = `<div class="face"></div>${mark}<div class="loop"><i></i></div><img class="edited" src="${IMG.edited}" alt=""><span class="label"></span><span class="key">${KEYLABEL[p.i]}</span>`;
+    p.el = el;
+    if (p.i < 8) bottom.appendChild(el); else { el.style.gridColumn = String(p.i - 6); el.style.gridRow = "1"; top.appendChild(el); }
+    el.addEventListener("pointerdown", e => { e.preventDefault(); el.setPointerCapture?.(e.pointerId); onPadPress(p, "touch"); });
+    const up = () => onPadRelease(p, "touch");
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    renderPad(p);
+  }
+}
+function renderPad(p) {
+  const el = p.el, s = soundOf(p) || current.info.sounds?.[p.soundId];
+  const shown = displayColor(p);
+  el.style.setProperty("--c", rgb(shown)); el.style.setProperty("--c50", rgb(shown, .5)); el.style.setProperty("--c80", rgb(shown, .8));
+  el.classList.toggle("isloop", s?.type === 1);
+  el.querySelector(".label").textContent = s?.name || "—";
+  el.querySelector(".edited").style.visibility = (p.soundId !== presetIds[p.i] || !isDefaultColor(p)) ? "visible" : "hidden";
+}
+function flash(p) { const el = p.el; el.classList.remove("hit"); void el.offsetWidth; el.classList.add("hit"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("hit"), 90); }
+
+let mode = "play";
+function onPadPress(p, source) {
+  if (!audio.ctx) return;
+  if (mode === "editor" && source === "touch") return openEditor(p);
+  const s = soundOf(p); if (!s) return;
+  flash(p);
+  if (s.type === 1) audio.toggleLoop(p); else audio.playSample(p);
+}
+function onPadRelease(p, source) {
+  if (!audio.ctx) return;
+  const s = soundOf(p); if (s?.sustainable) audio.release(p);
+}
+
+// progression des boucles
+(function loopTicker(){
+  if (audio.loops.running) {
+    const now = audio.ctx.currentTime;
+    for (const v of audio.loops.voices.values()) {
+      const el = pads[v.pad]?.el; if (!el) continue;
+      const d = v.src.buffer.duration; el.style.setProperty("--p", v.on ? ((now - audio.loops.t0) % d + d) % d / d : 0);
+    }
+  }
+  requestAnimationFrame(loopTicker);
+})();
+
+/* ======================================================================
+   Onglets / panneaux
+   ====================================================================== */
+const TITLES = {play:"LIRE", library:"BIBLIOTHÈQUE", editor:"ÉDITEUR", mysongs:"MA MUSIQUE"};
+const TINTS = {play:"var(--tint-play)", library:"var(--tint-library)", editor:"var(--tint-editor)", mysongs:"var(--tint-mysongs)"};
+function setMode(m) {
+  mode = m;
+  document.body.classList.toggle("editor", m === "editor");
+  document.querySelectorAll(".tab[data-tab]").forEach(t => t.classList.toggle("sel", t.dataset.tab === m));
+  $("#panel-library").classList.toggle("open", m === "library");
+  $("#panel-mysongs").classList.toggle("open", m === "mysongs");
+  $("#stage").style.visibility = (m === "library" || m === "mysongs") ? "hidden" : "visible";
+  $("#title").textContent = recorder.active ? "ENREGISTREMENT" : TITLES[m];
+  $("#tint").style.background = recorder.active ? "var(--tint-record)" : TINTS[m];
+  if (m === "mysongs") renderSongs();
+  updateHint();
+}
+document.querySelectorAll(".tab[data-tab]").forEach(t => t.addEventListener("click", () => {
+  const tab = t.dataset.tab;
+  if (tab === "record") return recorder.toggle();
+  setMode(mode === tab ? "play" : tab);
+}));
+function updateHint() {
+  const n = rings.filter(r => r.connected).length;
+  $("#hint").textContent = mode === "editor" ? "Touche un pavé pour changer son son ou sa couleur."
+    : mode !== "play" ? "" : n ? "" : "Connecte un anneau, ou joue à la souris / au clavier (Q S D F G H J K · 1 2 3 4).";
+}
+
+/* ======================================================================
+   Bibliothèque
+   ====================================================================== */
+function renderPacks() {
+  const card = (id, info, avail, art) => `<div class="pack ${current.id === id ? "sel" : ""} ${avail ? "" : "locked"}" data-id="${id}">${art ? `<img class="art" src="${art}" alt="">` : `<div class="art" data-art="${info.artworkPath || ""}">${avail ? "♪" : "⬇"}</div>`}<div class="meta"><div class="name">${packName(info)}</div><div class="sub">${info.genre && info.genre !== "N/A" ? info.genre + " · " : ""}${info.bpm} BPM<br>${avail ? (info.artist || "") : "Non importé"}</div></div></div>`;
+  const others = lib.catalog ? Object.entries(lib.catalog.packs).filter(([k]) => k !== "4").sort((a, b) => packName(a[1]).localeCompare(packName(b[1]), "fr", {numeric:true})) : [];
+  const nAvail = others.filter(([k]) => packAvailable(k)).length;
+  $("#packsNote").textContent = lib.catalog
+    ? `${nAvail} / ${others.length} groupes de sons importés (+ Intro Mix intégré). Touche un groupe pour le charger sur les pavés.`
+    : "Seul le groupe « Intro Mix » est intégré. Importe les fichiers specdrums-packs-1.zip à 4.zip (tous en une fois) pour ajouter les 63 autres groupes de sons d'origine : ils sont ensuite conservés dans ce navigateur.";
+  $("#packs").innerHTML = card("builtin", PACK.info, true, IMG.packArt) + others.map(([k, v]) => card(k, v, packAvailable(k), lib.urls.get(v.artworkPath))).join("");
+  $("#packs").querySelectorAll(".pack:not(.locked)").forEach(c => c.onclick = async () => {
+    if (!audio.ctx || c.dataset.id === current.id) return;
+    c.classList.add("loading"); toast("Chargement du groupe de sons…");
+    await loadPack(c.dataset.id); toast(`${packName(current.info)} · ${audio.bpm} BPM`); setMode("play");
+  });
+  $("#packs").querySelectorAll("[data-art]").forEach(async el => {
+    const path = el.dataset.art; if (!path || !lib.keys.has(path)) return;
+    try { if (!lib.urls.has(path)) lib.urls.set(path, URL.createObjectURL(await db.getFile(path))); el.outerHTML = `<img class="art" src="${lib.urls.get(path)}" alt="">`; } catch (e) {}
+  });
+}
+
+/* --- import des archives .zip (lecteur zip minimal : stockage + deflate) --- */
+async function readZip(file, onEntry) {
+  const buf = await file.arrayBuffer(), dv = new DataView(buf), dec = new TextDecoder();
+  let eocd = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error(`${file.name} n'est pas un zip valide`);
+  const n = dv.getUint16(eocd + 10, true); let p = dv.getUint32(eocd + 16, true);
+  for (let k = 0; k < n; k++) {
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nlen = dv.getUint16(p + 28, true), elen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true), lho = dv.getUint32(p + 42, true);
+    const name = dec.decode(new Uint8Array(buf, p + 46, nlen)); p += 46 + nlen + elen + clen;
+    if (name.endsWith("/")) continue;
+    const start = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true);
+    let data = new Uint8Array(buf, start, csize);
+    if (method === 8) data = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
+    else if (method !== 0) continue;
+    await onEntry(name, data);
+  }
+}
+const MIME = {m4a:"audio/mp4", flac:"audio/flac", wav:"audio/wav", jpg:"image/jpeg", jpeg:"image/jpeg", png:"image/png"};
+$("#importPacks").onchange = async e => {
+  const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
+  let count = 0, batch = [];
+  const flush = async () => { if (batch.length) { await db.putFiles(batch); batch.forEach(([k]) => lib.keys.add(k)); batch = []; } };
+  try {
+    for (const f of files) {
+      toast(`Import de ${f.name}…`);
+      await readZip(f, async (name, data) => {
+        const path = name.replace(/^specdrums-packs\//, "");
+        if (path === "packs.json") { lib.catalog = JSON.parse(new TextDecoder().decode(data)); await db.putMeta("catalog", lib.catalog); return; }
+        const ext = path.split(".").pop().toLowerCase(); if (!MIME[ext]) return;
+        batch.push([path, new Blob([data], {type: MIME[ext]})]); count++;
+        if (batch.length >= 40) { await flush(); toast(`Import… ${count} fichiers`); }
+      });
+      await flush();
+    }
+    renderPacks(); toast(`${count} fichiers importés`);
+  } catch (err) { console.error(err); toast("Échec de l'import : " + err.message); }
+};
+$("#clearPacks").onclick = async () => {
+  if (!lib.catalog) return toast("Aucun pack importé");
+  if (current.id !== "builtin") await loadPack("builtin");
+  await db.clearPacks(); lib.catalog = null; lib.keys.clear(); lib.urls.forEach(u => URL.revokeObjectURL(u)); lib.urls.clear();
+  renderPacks(); toast("Packs importés supprimés");
+};
+
+/* ======================================================================
+   Éditeur
+   ====================================================================== */
+let editing = null, scanWaiting = false;
+function openEditor(p) {
+  editing = p;
+  $("#editTitle").textContent = `PAVÉ ${p.i + 1} · ${p.i < 8 ? "SON" : "BOUCLE"}`;
+  renderSoundList(); renderSwatches();
+  setEditTab("sound"); openModal("#mEdit");
+}
+function setEditTab(t) {
+  document.querySelectorAll("[data-et]").forEach(b => b.classList.toggle("sel", b.dataset.et === t));
+  $("#etSound").hidden = t !== "sound"; $("#etColor").hidden = t !== "color";
+  scanWaiting = t === "color" && rings.some(r => r.connected);
+  $("#scanBox").classList.toggle("waiting", scanWaiting);
+}
+document.querySelectorAll("[data-et]").forEach(b => b.onclick = () => setEditTab(b.dataset.et));
+function renderSoundList() {
+  const list = Object.values(SOUNDS).filter(s => s.id !== "__nil");
+  const groups = {};
+  for (const s of list) (groups[s.type === 1 ? "BOUCLES" : s.type === 2 ? "MES ÉCHANTILLONS" : "SONS"] ||= []).push(s);
+  $("#soundList").innerHTML = Object.entries(groups).map(([g, arr]) => `<div class="cat">${g}</div>` + arr.sort((a,b)=>a.name.localeCompare(b.name,"fr",{numeric:true})).map(s =>
+    `<div class="soundItem ${s.id === editing.soundId ? "sel" : ""}" data-id="${s.id}">${s.name}<small>${s.type === 1 ? "boucle" : s.sustainable ? "maintien" : "un coup"}</small></div>`).join("")).join("");
+  $("#soundList").querySelectorAll(".soundItem").forEach(it => it.onclick = () => {
+    editing.soundId = it.dataset.id; if (audio.loops.running) audio.stopAllLoops();
+    renderPad(editing); renderSoundList(); savePads(); previewEditing();
+  });
+}
+function renderSwatches() {
+  const cur = editing.color.join();
+  $("#swatches").innerHTML = DEFAULT_PALETTE.map((c, i) => `<div class="swatch ${c.join() === cur ? "sel" : ""}" data-i="${i}" style="background:${rgb(MAT_COLORS[i])};position:relative">${i < 8 ? `<span style="position:absolute;left:8px;bottom:4px;font:500 20px BlockGothic">${i + 1}</span>` : MAT_SYMBOLS[i - 8].replace("<svg", '<svg style="position:absolute;left:8px;top:8px;width:18px"')}</div>`).join("");
+  $("#swatches").querySelectorAll(".swatch").forEach(sw => sw.onclick = () => setPadColor(editing, DEFAULT_PALETTE[+sw.dataset.i].slice()));
+  $("#scanPrev").style.background = rgb(displayColor(editing));
+}
+function setPadColor(p, c) {
+  p.color = c; renderPad(p); savePads(); if (editing === p) renderSwatches();
+  pushPaletteToRings();
+}
+function previewEditing() { if (!editing) return; const s = soundOf(editing); if (!s) return; flash(editing); if (s.type === 1) { audio.toggleLoop(editing); } else { audio.playSample(null, {...s, sustainable:false}); } }
+$("#editPreview").onclick = previewEditing;
+$("#importSound").onchange = async e => {
+  const f = e.target.files[0]; if (!f || !editing) return;
+  try {
+    const buffer = await audio.ctx.decodeAudioData(await f.arrayBuffer());
+    const id = "custom:" + f.name + ":" + Date.now();
+    SOUNDS[id] = {id, name: f.name.replace(/\.\w+$/, ""), category:3, type: editing.i >= 8 ? 1 : 2, sustainable:false, quantization:0, buffer};
+    editing.soundId = id; if (audio.loops.running) audio.stopAllLoops();
+    renderPad(editing); renderSoundList(); toast("Son importé : " + SOUNDS[id].name);
+  } catch (err) { toast("Impossible de lire ce fichier audio"); }
+  e.target.value = "";
+};
+$("#resetColors").onclick = () => {
+  pads.forEach(p => { p.color = DEFAULT_PALETTE[p.i].slice(); renderPad(p); }); savePads();
+  rings.filter(r => r.connected && !r.noPalette).forEach(r => r.send(DID.IO, CMD.IO_LOAD_PALETTE, [0]).catch(()=>{}));
+  toast("Couleurs par défaut rétablies");
+};
+$("#resetAll").onclick = () => {
+  if (audio.loops.running) audio.stopAllLoops();
+  pads.forEach(p => { p.color = DEFAULT_PALETTE[p.i].slice(); p.soundId = presetIds[p.i]; renderPad(p); }); savePads();
+  rings.filter(r => r.connected && !r.noPalette).forEach(r => r.send(DID.IO, CMD.IO_LOAD_PALETTE, [0]).catch(()=>{}));
+  toast("Pavés réinitialisés");
+};
+function paletteBytes() { const out = []; pads.forEach(p => out.push(p.i, ...p.color)); return out; }
+function pushPaletteToRings() {
+  const allDefault = pads.every(isDefaultColor);
+  for (const r of rings.filter(r => r.connected && !r.noPalette)) {
+    (allDefault ? r.send(DID.IO, CMD.IO_LOAD_PALETTE, [0]) : r.send(DID.IO, CMD.IO_SET_PALETTE, paletteBytes()))
+      .catch(e => log("er", `[${r.name}] palette : ${e.message}`));
+  }
+}
+
+/* ======================================================================
+   Enregistrement + Ma musique
+   ====================================================================== */
+const songs = [];
+const db = {
+  _db:null,
+  open() {
+    if (this._db) return this._db;
+    return this._db = new Promise((res, rej) => { try {
+      const q = indexedDB.open("sdmix", 2);
+      q.onupgradeneeded = () => { const d = q.result; if (!d.objectStoreNames.contains("songs")) d.createObjectStore("songs", {keyPath:"id"}); for (const n of ["files", "meta"]) if (!d.objectStoreNames.contains(n)) d.createObjectStore(n); };
+      q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
+    } catch (e) { rej(e); } });
+  },
+  req(store, mode, fn) { return this.open().then(d => new Promise((res, rej) => { const t = d.transaction(store, mode); const r = fn(t.objectStore(store)); t.oncomplete = () => res(r?.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error("transaction annulée")); })); },
+  getFile(path) { return this.req("files", "readonly", s => s.get(path)).then(b => { if (!b) throw new Error("fichier absent : " + path); return b; }); },
+  putFiles(list) { return this.req("files", "readwrite", s => { list.forEach(([k, v]) => s.put(v, k)); }); },
+  fileKeys() { return this.req("files", "readonly", s => s.getAllKeys()).then(k => k || []).catch(() => []); },
+  getMeta(k) { return this.req("meta", "readonly", s => s.get(k)).catch(() => null); },
+  putMeta(k, v) { return this.req("meta", "readwrite", s => s.put(v, k)); },
+  clearPacks() { return Promise.all([this.req("files", "readwrite", s => s.clear()), this.req("meta", "readwrite", s => s.delete("catalog"))]); },
+  async all() { try { const d = await this.open(); return await new Promise(r => { const q = d.transaction("songs").objectStore("songs").getAll(); q.onsuccess = () => r(q.result || []); q.onerror = () => r([]); }); } catch (e) { return []; } },
+  async put(s) { try { const d = await this.open(); d.transaction("songs", "readwrite").objectStore("songs").put(s); } catch (e) {} },
+  async del(id) { try { const d = await this.open(); d.transaction("songs", "readwrite").objectStore("songs").delete(id); } catch (e) {} },
+};
+db.all().then(list => { songs.push(...list.sort((a, b) => b.id - a.id)); });
+const libReady = (async () => { try { lib.catalog = await db.getMeta("catalog"); lib.keys = new Set(await db.fileKeys()); } catch (e) {} renderPacks(); })();
+const recorder = {
+  active:false, mr:null, chunks:[], t0:0,
+  async toggle() {
+    if (!audio.ctx) return;
+    if (this.active) return this.stop();
+    const cd = $("#countdown"); cd.style.display = "flex";
+    for (const n of [3, 2, 1]) { cd.textContent = n; await new Promise(r => setTimeout(r, 650)); }
+    cd.style.display = "none";
+    const type = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
+    try { this.mr = new MediaRecorder(audio.recDest.stream, type ? {mimeType:type} : undefined); }
+    catch (e) { return toast("Enregistrement non pris en charge par ce navigateur"); }
+    this.chunks = []; this.mr.ondataavailable = e => e.data.size && this.chunks.push(e.data);
+    this.mr.onstop = () => {
+      const blob = new Blob(this.chunks, {type: this.mr.mimeType});
+      const s = {id: Date.now(), name: `MORCEAU ${songs.length + 1}`, duration: (performance.now() - this.t0) / 1000, type: this.mr.mimeType, blob};
+      songs.unshift(s); db.put(s); toast(`${s.name} enregistré dans Ma musique`);
+      if (mode === "mysongs") renderSongs();
+    };
+    this.mr.start(); this.t0 = performance.now(); this.active = true; this.ui();
+  },
+  stop() { this.mr?.stop(); this.active = false; this.ui(); },
+  ui() {
+    $("#tabRecord").classList.toggle("recording", this.active);
+    $("#recImg").src = this.active ? IMG.recStop : IMG.rec;
+    $("#recLabel").textContent = this.active ? "ARRÊTER" : "ENREGISTRER";
+    $("#rec-dot").style.display = this.active ? "flex" : "none";
+    setMode(mode);
+  },
+};
+let playingSong = null;
+function renderSongs() {
+  const el = $("#songs");
+  if (!songs.length) { el.innerHTML = `<div class="empty">Aucun morceau pour l'instant. Utilise ENREGISTRER pour capturer ce que tu joues.</div>`; return; }
+  const fmt = d => `${Math.floor(d / 60)}:${String(Math.round(d % 60)).padStart(2, "0")}`;
+  el.innerHTML = songs.map(s => `<div class="song" data-id="${s.id}"><button data-a="play"><img src="${playingSong?.id === s.id ? IMG.stop : IMG.play}" alt="Lire"></button><span class="t">${s.name}</span><span class="d">${fmt(s.duration)}</span><button data-a="save" title="Télécharger"><img src="${IMG.save}" alt=""></button><button data-a="del" title="Supprimer"><img src="${IMG.del}" alt=""></button></div>`).join("");
+  el.querySelectorAll(".song").forEach(row => {
+    const s = songs.find(x => x.id == row.dataset.id);
+    row.querySelector('[data-a=play]').onclick = () => {
+      if (playingSong) { playingSong.audio.pause(); const same = playingSong.id === s.id; playingSong = null; if (same) return renderSongs(); }
+      const a = new Audio(URL.createObjectURL(s.blob)); a.play(); a.onended = () => { playingSong = null; renderSongs(); };
+      playingSong = {id:s.id, audio:a}; renderSongs();
+    };
+    row.querySelector('[data-a=save]').onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(s.blob); a.download = `${s.name.toLowerCase().replace(/\s+/g, "-")}.${s.type.includes("mp4") ? "m4a" : "webm"}`; a.click(); };
+    row.querySelector('[data-a=del]').onclick = () => { const k = songs.indexOf(s); songs.splice(k, 1); db.del(s.id); renderSongs(); };
+  });
+}
+
+/* ======================================================================
+   Protocole Bluetooth Sphero API v2 (validé sur anneau SD-AABE)
+   ====================================================================== */
+const UUID = {
+  apiService:"00010001-574f-4f20-5370-6865726f2121", apiChar:"00010002-574f-4f20-5370-6865726f2121",
+  dfuService:"00020001-574f-4f20-5370-6865726f2121", dfuControl:"00020002-574f-4f20-5370-6865726f2121",
+  dfuInfo:"00020004-574f-4f20-5370-6865726f2121", antiDos:"00020005-574f-4f20-5370-6865726f2121",
+};
+const SOP = 0x8D, EOP = 0xD8, ESC = 0xAB, ESC_MAP = {0xAB:0x23, 0x8D:0x05, 0xD8:0x50};
+const DID = {API:0x10, SYSTEM:0x11, POWER:0x13, IO:0x1A};
+const CMD = {API_PING:0x00, POWER_WAKE:0x0D, POWER_DEEP_SLEEP:0x00, POWER_BATT_STATE:0x17, POWER_ENABLE_BATT_NOTIFY:0x1B, POWER_CHARGER_STATE:0x1F, POWER_ENABLE_CHARGER_NOTIFY:0x20,
+  SYS_MAIN_VERSION:0x00, IO_ENABLE_COLOR_TAP:0x1D, IO_COLOR_TAP:0x1E, IO_GET_PALETTE:0x44, IO_SET_PALETTE:0x45, IO_LOAD_PALETTE:0x47};
+const BATTERY = {0:"inconnue", 1:"OK", 2:"faible", 3:"critique"}, CHARGER = {0:"?", 1:"", 2:"en charge", 3:"chargé, sur le câble"};
+const hex = a => Array.from(a, b => b.toString(16).padStart(2, "0")).join(" ");
+
+function encodePacket(did, cid, seq, data = []) {
+  const body = [0x0A, did, cid, seq, ...data]; body.push((~body.reduce((s, b) => s + b, 0)) & 0xFF);
+  const out = [SOP]; for (const b of body) b in ESC_MAP ? out.push(ESC, ESC_MAP[b]) : out.push(b); out.push(EOP);
+  return new Uint8Array(out);
+}
+class PacketReader {
+  constructor(onPacket) { this.buf = null; this.esc = false; this.onPacket = onPacket; }
+  push(bytes) {
+    for (const b of bytes) {
+      if (b === SOP) { this.buf = []; this.esc = false; continue; }
+      if (this.buf === null) continue;
+      if (b === EOP) { const p = this.buf; this.buf = null; this.parse(p); continue; }
+      if (b === ESC) { this.esc = true; continue; }
+      if (this.esc) { const o = Object.keys(ESC_MAP).find(k => ESC_MAP[k] === b); this.buf.push(o !== undefined ? +o : b); this.esc = false; }
+      else this.buf.push(b);
+    }
+  }
+  parse(p) {
+    if (p.length < 5 || ((~p.slice(0, -1).reduce((s, b) => s + b, 0)) & 0xFF) !== p[p.length - 1]) return log("er", "trame invalide " + hex(p));
+    let i = 0; const flags = p[i++], pkt = {flags};
+    if (flags & 0x10) pkt.tid = p[i++]; if (flags & 0x20) pkt.sid = p[i++];
+    pkt.did = p[i++]; pkt.cid = p[i++]; pkt.seq = p[i++]; pkt.isResponse = !!(flags & 1);
+    if (pkt.isResponse) pkt.err = p[i++];
+    pkt.data = p.slice(i, -1); this.onPacket(pkt);
+  }
+}
+const logLines = [];
+function log(cls, msg) {
+  const t = new Date().toLocaleTimeString("fr-FR", {hour12:false});
+  logLines.push(`${t}  ${msg}`); if (logLines.length > 800) logLines.shift();
+  if (!$("#logWrap").hidden) { $("#log").textContent = logLines.join("\n"); $("#log").scrollTop = 1e9; }
+}
+
+const rings = [];
+class Ring {
+  constructor(device) {
+    this.device = device; this.name = device.name || "Anneau"; this.seq = 0; this.pending = new Map(); this.queue = Promise.resolve();
+    this.reader = new PacketReader(p => this.onPacket(p)); this.connected = false; this.lastColor = null;
+    device.addEventListener("gattserverdisconnected", () => this.onDisconnect());
+  }
+  async connect(attempt = 0) {
+    if (attempt === 0) { if (this.connecting) return this.connecting; this.connecting = this._connect(0).finally(() => { this.connecting = null; }); return this.connecting; }
+    return this._connect(attempt);
+  }
+  async _connect(attempt) {
+    log("in", `[${this.name}] connexion…`);
+    this.server = await Promise.race([this.device.gatt.connect(), new Promise((_, rej) => setTimeout(() => rej(new Error("délai de connexion dépassé (anneau endormi ?)")), 10000))]); this.reconnecting = false; this.userDisconnect = false;
+    const chars = {};
+    for (const s of await this.server.getPrimaryServices()) for (const c of await s.getCharacteristics()) chars[c.uuid] = c;
+    const write = (c, d) => c.properties.write ? c.writeValueWithResponse(d) : c.writeValueWithoutResponse(d);
+    if (chars[UUID.antiDos]) await write(chars[UUID.antiDos], new TextEncoder().encode("usetheforce...band"));
+    for (const c of Object.values(chars)) {
+      if (!c.properties.notify) continue;
+      if (c._h) c.removeEventListener("characteristicvaluechanged", c._h);
+      c.addEventListener("characteristicvaluechanged", c._h = ev => { const b = new Uint8Array(ev.target.value.buffer, ev.target.value.byteOffset, ev.target.value.byteLength); if (c === this.rx) this.reader.push(b); else if (rawLog) log("rx", `[${this.name}] ⇠ (${c.uuid.slice(4, 8)}) ${hex(b)}`); });
+      await c.startNotifications().catch(() => {});
+    }
+    if (!chars[UUID.apiChar] && chars[UUID.dfuControl]) {           // bootloader → application principale
+      if (attempt >= 3) throw new Error("l'anneau reste dans son bootloader");
+      log("in", `[${this.name}] bootloader → saut vers l'application principale`);
+      this.reconnecting = true;
+      await chars[UUID.dfuControl].writeValueWithResponse(new Uint8Array([0x1E])).catch(e => log("er", e.message));
+      await new Promise(r => setTimeout(r, 2500)); if (this.device.gatt.connected) this.device.gatt.disconnect();
+      await new Promise(r => setTimeout(r, 800)); return this._connect(attempt + 1);
+    }
+    this.tx = this.rx = chars[UUID.apiChar]; this.write = write;
+    if (!this.tx) throw new Error("caractéristique de commande introuvable");
+    this.reader = new PacketReader(p => this.onPacket(p));
+    await this.send(DID.POWER, CMD.POWER_WAKE).catch(() => {});
+    const alive = () => { if (!this.device.gatt.connected) throw new Error("l'anneau a coupé la connexion pendant l'initialisation"); };
+    alive();
+    await this.send(DID.IO, CMD.IO_ENABLE_COLOR_TAP, [1]); alive();
+    await this.send(DID.POWER, CMD.POWER_ENABLE_BATT_NOTIFY, [1]).catch(() => {});
+    await this.send(DID.POWER, CMD.POWER_ENABLE_CHARGER_NOTIFY, [1]).catch(() => {});
+    try {
+      if (pads.every(isDefaultColor)) await this.send(DID.IO, CMD.IO_LOAD_PALETTE, [0]);
+      else await this.send(DID.IO, CMD.IO_SET_PALETTE, paletteBytes());
+      this.noPalette = false;
+    } catch (e) { alive(); this.noPalette = true; log("er", `[${this.name}] palette non prise en charge par ce firmware (${e.message}) : l'anneau garde ses couleurs d'usine`); }
+    try { this.battery = (await this.send(DID.POWER, CMD.POWER_BATT_STATE)).data[0]; } catch (e) {}
+    try { this.charger = (await this.send(DID.POWER, CMD.POWER_CHARGER_STATE)).data[0]; } catch (e) {}
+    try { const v = (await this.send(DID.SYSTEM, CMD.SYS_MAIN_VERSION)).data; this.fw = `${(v[0]<<8)|v[1]}.${(v[2]<<8)|v[3]}.${(v[4]<<8)|v[5]}`; } catch (e) {}
+    alive();
+    clearInterval(this.ping); this.ping = setInterval(() => this.device.gatt.connected && this.send(DID.API, CMD.API_PING).catch(() => {}), 2000);
+    this.connected = true; this.connectedAt = Date.now(); this.retries = 0; log("in", `[${this.name}] prêt (firmware ${this.fw || "?"}, batterie ${BATTERY[this.battery] ?? "?"}, chargeur : ${["?","débranché","en charge","chargé mais branché"][this.charger] ?? "?"})`); ringsChanged();
+    if (this.charger >= 2) { log("er", `[${this.name}] 🔌 sur son chargeur (${CHARGER[this.charger]}) : taps désactivés, connexion instable — débranche-le pour jouer`); toast(`🔌 ${this.name} est sur son chargeur : débranche-le pour jouer`); }
+    else if (this.battery >= 2) toast(`Batterie ${BATTERY[this.battery]} sur ${this.name}`);
+  }
+  send(did, cid, data = []) {
+    const seq = this.seq = (this.seq + 1) & 0xFF, pkt = encodePacket(did, cid, seq, data);
+    const done = new Promise((res, rej) => { const timer = setTimeout(() => { this.pending.delete(seq); rej(new Error("délai dépassé")); }, 3000); this.pending.set(seq, {res, rej, timer}); });
+    if (!this.tx) return Promise.reject(new Error("non connecté"));
+    if (rawLog && !(did === DID.API && cid === CMD.API_PING)) log("tx", `[${this.name}] ⇢ ${did}:${cid} ${hex(pkt)}`);
+    // l'anneau n'accepte pas les écritures longues : découpage en morceaux de 20 octets (cf. writeAPIChunk de l'app d'origine)
+    this.queue = this.queue.then(async () => { for (let o = 0; o < pkt.length; o += 20) await this.write(this.tx, pkt.slice(o, o + 20)); }).catch(e => log("er", `[${this.name}] écriture : ${e.message}`));
+    return done;
+  }
+  onPacket(p) {
+    this.lastRx = Date.now();
+    if (rawLog && !(p.did === DID.API && p.cid === CMD.API_PING)) log("rx", `[${this.name}] ⇠ ${p.did}:${p.cid}${p.isResponse ? " réponse" + (p.err ? " ERREUR " + p.err : "") : " notif"} ${hex(p.data)}`);
+    if (p.isResponse && this.pending.has(p.seq)) {
+      const q = this.pending.get(p.seq); this.pending.delete(p.seq); clearTimeout(q.timer);
+      return p.err ? q.rej(new Error("erreur " + p.err)) : q.res(p);
+    }
+    if (p.did === DID.IO && p.cid === CMD.IO_COLOR_TAP && p.data.length >= 6) {
+      const [r, g, b, conf, id, intensity] = p.data;
+      log("ev", `[${this.name}] tap couleur=${id} rgb(${r},${g},${b}) conf=${conf} int=${intensity}`);
+      return onRingTap(this, {r, g, b, conf, id, released: intensity === 0});
+    }
+    if (p.did === DID.POWER && p.cid === 0x1C) { this.battery = p.data[0]; ringsChanged(); if (p.data[0] >= 2) toast(`🔋 Batterie ${BATTERY[p.data[0]]} sur ${this.name}`); return; }
+    if (p.did === DID.POWER && p.cid === 0x21) { this.charger = p.data[0]; log("in", `[${this.name}] 🔌 chargeur : ${["?","débranché","en charge","chargé (branché)"][p.data[0]] ?? p.data[0]}`); ringsChanged(); return; }
+    if (p.did === DID.POWER && (p.cid === 0x19 || p.cid === 0x1A)) { this.sleeping = true; log("er", `[${this.name}] 💤 ${p.cid === 0x19 ? "va s'endormir" : "s'est endormi"}`); toast(`💤 ${this.name} se met en veille`); return; }
+    if (p.did === DID.POWER && p.cid === 0x11) return; // notification d'alimentation anodine (19:17), envoyée à la connexion
+    log("rx", `[${this.name}] notif ${p.did}:${p.cid} ${hex(p.data)}`);
+  }
+  onDisconnect() {
+    if (this.reconnecting) return;
+    clearInterval(this.ping); const wasConnected = this.connected; this.connected = false; this.tx = null;
+    for (const q of this.pending.values()) { clearTimeout(q.timer); q.rej(new Error("déconnecté")); } this.pending.clear();
+    const dur = this.connectedAt ? Math.round((Date.now() - this.connectedAt) / 1000) : 0;
+    log("er", `[${this.name}] déconnecté après ${dur} s${this.userDisconnect ? " (demandé)" : this.sleeping ? " (veille)" : " (inattendu)"}${this.lastRx ? `, dernier message reçu il y a ${Math.round((Date.now() - this.lastRx) / 1000)} s` : ""}`);
+    ringsChanged();
+    if (this.userDisconnect || this.sleeping || !wasConnected) { this.sleeping = false; if (!this.userDisconnect) toast(`${this.name} déconnecté`); return; }
+    this.autoReconnect();
+  }
+  async autoReconnect() {
+    if (this.retries >= 5) { toast(`${this.name} : reconnexion impossible — tape l'anneau pour le réveiller puis reconnecte-le`); return; }
+    this.retries = (this.retries || 0) + 1; this.state = "RECONNEXION…"; ringsChanged();
+    toast(`${this.name} déconnecté — reconnexion (${this.retries}/5)…`);
+    await new Promise(r => setTimeout(r, 800 * this.retries));
+    try { await this.connect(); this.state = null; toast(`${this.name} reconnecté`); }
+    catch (e) { log("er", `[${this.name}] reconnexion ${this.retries} : ${e.message}`); this.state = null; if (!this.connected) this.autoReconnect(); }
+  }
+}
+const heldByRing = new Map(); // ring -> pad index en cours de maintien
+function onRingTap(ring, t) {
+  ring.lastColor = [t.r, t.g, t.b]; ringsChanged(false);
+  if (scanWaiting && editing && !t.released) {                     // mode « scanner une couleur »
+    setPadColor(editing, [t.r, t.g, t.b]); toast("Couleur scannée"); return;
+  }
+  if (t.released) { const i = heldByRing.get(ring); if (i !== undefined) { onPadRelease(pads[i], "ring"); heldByRing.delete(ring); } return; }
+  if (t.id === 255) { if (SOUNDS.__nil) audio.playSample(null, SOUNDS.__nil); return; }
+  const p = pads[t.id]; if (!p) return;
+  const prev = heldByRing.get(ring); if (prev !== undefined && prev !== p.i) onPadRelease(pads[prev], "ring");
+  heldByRing.set(ring, p.i);
+  onPadPress(p, "ring");
+}
+function ringsChanged(full = true) {
+  const n = rings.filter(r => r.connected).length;
+  $("#ringCount").textContent = n; $("#ringCount").style.display = n ? "block" : "none";
+  $("#connectLabel").textContent = n ? "CONNECTÉ" : "SE CONNECTER";
+  updateHint(); if ($("#mRings").classList.contains("open")) renderRings();
+}
+function renderRings() {
+  const batImg = b => b === 1 ? IMG.batG : b === 2 ? IMG.batY : b === 3 ? IMG.batR : IMG.batU;
+  $("#ringList").innerHTML = rings.length ? rings.map((r, k) => `<div class="ringItem"><div class="ico" style="border-color:${r.lastColor ? rgb(r.lastColor) : "#555"};background:${r.lastColor ? rgb(r.lastColor, .5) : "#000"}"></div>
+      <div class="grow"><div class="n">${r.name}</div><div class="s">${r.state || (r.connected ? "CONNECTÉ" : "DÉCONNECTÉ")}${r.fw ? " · firmware " + r.fw + (r.fw.startsWith("4.") ? "" : " (ancien)") : ""}${r.charger >= 2 ? " · " + CHARGER[r.charger].toUpperCase() : ""}</div></div>
+      <img class="bat" src="${batImg(r.battery)}" alt="" title="Batterie ${BATTERY[r.battery] || "?"}">
+      <button class="btn" data-k="${k}">${r.connected ? "DÉCONNECTER" : "RECONNECTER"}</button></div>`).join("")
+    : `<div class="keys">Aucun anneau. Allume ton anneau (tape-le), retire-le du câble de charge, puis « Connecter un anneau ». Répète pour un second anneau.</div>`;
+  $("#ringList").querySelectorAll("[data-k]").forEach(b => b.onclick = async () => {
+    const r = rings[+b.dataset.k];
+    if (r.connected) { r.userDisconnect = true; r.device.gatt.disconnect(); } else { try { await r.connect(); } catch (e) { toast("Échec de connexion : " + e.message); } }
+  });
+}
+$("#addRing").onclick = async () => {
+  await audio.init();
+  try {
+    const device = await navigator.bluetooth.requestDevice({filters:[{namePrefix:"SD-"}], optionalServices:[UUID.apiService, UUID.dfuService]});
+    let r = rings.find(x => x.device.id === device.id);
+    if (r?.connected) return toast(`${r.name} est déjà connecté`);
+    if (!r) { r = new Ring(device); rings.push(r); }
+    renderRings(); await r.connect();
+  } catch (e) {
+    if (!/cancel/i.test(e.message)) { log("er", "Échec de connexion : " + e.message); toast("ÉCHEC DE CONNEXION — " + e.message); }
+  }
+};
+$("#btnConnect").onclick = () => {
+  $("#bleNote").textContent = navigator.bluetooth ? "" : "⚠ Ce navigateur ne gère pas le Bluetooth Web : utilise Chrome ou Edge sur Mac/PC/Android, ou l'app Bluefy sur iPad.";
+  $("#addRing").disabled = !navigator.bluetooth;
+  renderRings(); openModal("#mRings");
+};
+
+/* ======================================================================
+   Paramètres, aide, divers
+   ====================================================================== */
+function openModal(sel) { $(sel).classList.add("open"); }
+document.querySelectorAll(".modal").forEach(m => {
+  m.addEventListener("click", e => { if (e.target === m || e.target.closest("[data-close]")) { m.classList.remove("open"); if (m.id === "mEdit") { editing = null; scanWaiting = false; } } });
+});
+$("#btnSettings").onclick = () => openModal("#mSettings");
+$("#helpBtn").onclick = () => openModal("#mHelp");
+$("#volume").value = store.get("sdmix.volume", 0.9);
+$("#volume").oninput = e => { const v = +e.target.value; if (audio.master) audio.master.gain.value = muted ? 0 : v; store.set("sdmix.volume", v); };
+$("#showLabels").checked = store.get("sdmix.labels", false); document.body.classList.toggle("showlabels", $("#showLabels").checked);
+$("#showLabels").onchange = e => { document.body.classList.toggle("showlabels", e.target.checked); store.set("sdmix.labels", e.target.checked); };
+$("#showLog").onchange = e => { $("#logWrap").hidden = !e.target.checked; $("#log").textContent = logLines.join("\n"); };
+let rawLog = false; $("#rawLog").onchange = e => { rawLog = e.target.checked; };
+$("#copyLog").onclick = () => navigator.clipboard.writeText(logLines.join("\n")).then(() => toast("Journal copié"));
+$("#clearLog").onclick = () => { logLines.length = 0; $("#log").textContent = ""; };
+$("#bpmLabel").textContent = `${PACK.info.bpm} BPM`;
+let muted = false;
+$("#muteBtn").onclick = () => { muted = !muted; $("#muteImg").src = muted ? IMG.muted : IMG.unmuted; if (audio.master) audio.master.gain.value = muted ? 0 : +$("#volume").value; };
+let toastT; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600); }
+
+// clavier
+const keysDown = new Set();
+addEventListener("keydown", e => {
+  if (e.target.closest("input,textarea") || e.metaKey || e.ctrlKey) return;
+  if (e.code === "Space") { e.preventDefault(); if (audio.loops.running) audio.stopAllLoops(); return; }
+  if (e.code === "Escape") { document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open")); editing = null; scanWaiting = false; return; }
+  const i = KEYMAP[e.code]; if (i === undefined || e.repeat || keysDown.has(e.code)) return;
+  if (document.querySelector(".modal.open")) return;
+  keysDown.add(e.code); onPadPress(pads[i], "key");
+});
+addEventListener("keyup", e => { const i = KEYMAP[e.code]; if (i === undefined) return; keysDown.delete(e.code); onPadRelease(pads[i], "key"); });
+
+// démarrage (le son doit être débloqué par un geste)
+$("#splash").addEventListener("click", async () => {
+  $("#splash").querySelector("span").textContent = "CHARGEMENT DES SONS…";
+  await audio.init(); buildPads(); $("#splash").remove();
+}, {once:true});
+renderPacks(); setMode("play");
+</script>
+</body>
+</html>
