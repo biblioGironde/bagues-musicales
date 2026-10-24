@@ -226,6 +226,12 @@ body.editor .pad .face{animation:wiggle 2.4s ease-in-out infinite}
 </div></div>
 
 <!-- Anneaux -->
+<!-- Sélecteur d'anneau (app Electron uniquement : Chrome fournit le sien) -->
+<div class="modal" id="mBlePick"><div class="dialog" style="width:min(460px,100%)">
+  <header><h3>CHOISIR UN ANNEAU</h3><button id="blePickCancel"><img src="%%A:ic_close.png%%" alt="Annuler"></button></header>
+  <div class="body"><div class="ringList" id="blePickList"><div class="keys">Recherche des anneaux… Tape ton anneau pour le réveiller.</div></div></div>
+</div></div>
+
 <div class="modal" id="mRings"><div class="dialog">
   <header><h3>ANNEAUX</h3><button data-close><img src="%%A:ic_close.png%%" alt="Fermer"></button></header>
   <div class="body"><div class="ringList" id="ringList"></div><p class="keys" id="bleNote"></p></div>
@@ -898,6 +904,17 @@ function renderRings() {
     if (r.connected) { r.userDisconnect = true; r.device.gatt.disconnect(); } else { try { await r.connect(); } catch (e) { toast("Échec de connexion : " + e.message); } }
   });
 }
+// App Electron : Electron n'a pas de fenêtre de choix Bluetooth, on affiche la nôtre
+if (window.electronBLE) {
+  let picking = false;
+  window.electronBLE.onDevices(list => {
+    if (!picking) { picking = true; openModal("#mBlePick"); }
+    $("#blePickList").innerHTML = list.length ? list.map(d => `<div class="ringItem" data-id="${d.deviceId}" style="cursor:pointer"><div class="ico"></div><div class="grow"><div class="n">${d.deviceName || "Anneau"}</div><div class="s">TOUCHER POUR CONNECTER</div></div></div>`).join("")
+      : `<div class="keys">Recherche des anneaux… Tape ton anneau pour le réveiller.</div>`;
+    $("#blePickList").querySelectorAll("[data-id]").forEach(el => el.onclick = () => { picking = false; $("#mBlePick").classList.remove("open"); window.electronBLE.select(el.dataset.id); });
+  });
+  $("#blePickCancel").onclick = () => { picking = false; $("#mBlePick").classList.remove("open"); window.electronBLE.select(""); };
+}
 $("#addRing").onclick = async () => {
   await audio.init();
   try {
@@ -921,7 +938,7 @@ $("#btnConnect").onclick = () => {
    ====================================================================== */
 function openModal(sel) { $(sel).classList.add("open"); }
 document.querySelectorAll(".modal").forEach(m => {
-  m.addEventListener("click", e => { if (e.target === m || e.target.closest("[data-close]")) { m.classList.remove("open"); if (m.id === "mEdit") { editing = null; scanWaiting = false; } } });
+  m.addEventListener("click", e => { if (m.id === "mBlePick") return; if (e.target === m || e.target.closest("[data-close]")) { m.classList.remove("open"); if (m.id === "mEdit") { editing = null; scanWaiting = false; } } });
 });
 $("#btnSettings").onclick = () => openModal("#mSettings");
 $("#helpBtn").onclick = () => openModal("#mHelp");

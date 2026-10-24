@@ -11,6 +11,7 @@ et chaque couleur du tapis déclenche un son ou une boucle.
 - **▶ Démo en ligne : https://bibliogironde.github.io/bagues-musicales/** (version libre : sons synthétisés,
   icônes génériques ; les bagues s'y connectent dans Chrome/Edge, et les groupes de sons d'origine s'y importent).
   Banc de test Bluetooth : https://bibliogironde.github.io/bagues-musicales/test.html
+- **⬇ Application à installer (Mac, Windows, Linux)** : voir les [Releases](https://github.com/biblioGironde/bagues-musicales/releases/latest).
 - Projet du service **biblio.gironde** (coopérations numériques).
 - Fonctionne dans **Chrome ou Edge** (Mac, PC, Chromebook, Android) grâce au Web Bluetooth.
   Sur iPad / iPhone : uniquement via un navigateur Web Bluetooth comme **Bluefy** (Safari ne gère pas le Web Bluetooth).
@@ -51,6 +52,26 @@ Publiée automatiquement à chaque push sur `main` par `.github/workflows/pages.
 (réglage du dépôt : *Settings → Pages → Source : GitHub Actions*). Le pack « Démo synthé » et les icônes
 sont générés par `tools/demo_assets.py`.
 
+## Application de bureau (Electron)
+
+Les [Releases](https://github.com/biblioGironde/bagues-musicales/releases) proposent la version démo libre en application :
+
+| Système | Fichier |
+|---|---|
+| Mac (puce Apple) | `Bagues-musicales-x.y.z-mac-arm64.dmg` |
+| Mac (Intel) | `Bagues-musicales-x.y.z-mac-x64.dmg` |
+| Windows | `…-windows-setup.exe` (installateur) ou `…-windows-portable.exe` |
+| Linux | `…-linux-x86_64.AppImage` |
+
+- L'app n'est pas signée : sur Mac, au premier lancement, faire **clic droit → Ouvrir** ; si macOS indique
+  que l'app est « endommagée » : `xattr -cr "/Applications/Bagues musicales.app"`. Sur Windows, SmartScreen :
+  *Informations complémentaires → Exécuter quand même*.
+- macOS demande l'autorisation Bluetooth au premier « Connecter un anneau ».
+- Electron n'ayant pas de fenêtre de choix Bluetooth, l'app affiche sa propre liste « Choisir un anneau ».
+
+Construire soi-même : `cd electron && npm install && npm run dist` (ou `npm start` pour la lancer).
+Publier une version : `git tag v1.2.3 && git push --tags` → le workflow `release.yml` construit et publie.
+
 ## Récupérer les groupes de sons (facultatif)
 
 Tant que le service Firebase de Sphero reste en ligne :
@@ -85,7 +106,8 @@ l'inventaire Bluetooth, les trames échangées et les taps. Utile pour vérifier
 src/index.html          interface + moteur audio + Bluetooth (ressources Sphero en marqueurs %%A:…%%)
 tools/build.py          assemble dist/specdrums-mix.html à partir de l'APK (ou la démo libre avec --demo)
 tools/demo_assets.py    icônes SVG et pack de sons synthétisé de la démo
-.github/workflows/      publication de la démo sur GitHub Pages
+.github/workflows/      publication de la démo (Pages) et des applications (Releases)
+electron/               application de bureau (Electron) : main.js, preload.js, icône, configuration
 tools/fetch_packs.py    sauvegarde locale des groupes de sons d'origine
 test/specdrums-test.html  banc de test Bluetooth
 docs/protocole-ble.md   protocole des bagues

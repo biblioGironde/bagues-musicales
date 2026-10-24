@@ -9,3 +9,6 @@ packs/
 __pycache__/
 .DS_Store
 site/
+electron/node_modules/
+electron/app/
+electron/release/
