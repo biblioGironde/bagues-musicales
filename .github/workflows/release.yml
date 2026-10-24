@@ -1,10 +1,17 @@
 # Construit l'app Electron (démo libre, sans ressource Sphero) pour Mac, Windows et Linux
-# et la publie dans les Releases GitHub à chaque tag v* (ex. git tag v1.0.0 && git push --tags)
+# puis publie une Release GitHub :
+#  - à chaque tag v* poussé (ex. git tag v1.2.0 && git push --tags)
+#  - ou à la main : onglet Actions > « Release app Electron » > Run workflow (version de electron/package.json)
 name: Release app Electron
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      publier:
+        description: "Publier une Release (sinon : simple test de construction)"
+        type: boolean
+        default: true
 permissions:
   contents: write
 jobs:
@@ -35,18 +42,49 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
         run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}" --allow-same-version
-      - run: npm install --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
       - run: npm run prepare-app
-      - name: Construire et publier
-        run: npx electron-builder ${{ matrix.args }} --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+      - run: npx electron-builder ${{ matrix.args }} --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
       - uses: actions/upload-artifact@v4
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         with:
-          name: bagues-musicales-${{ matrix.os }}
+          name: app-${{ matrix.os }}
+          if-no-files-found: error
           path: |
             electron/release/*.dmg
             electron/release/*.exe
             electron/release/*.AppImage
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.publier
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publier la Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then TAG="$GITHUB_REF_NAME"; else TAG="v$(node -p "require('./electron/package.json').version")"; fi
+          ls -la dist
+          cat > notes.md <<'NOTES'
+          Application de bureau **Bagues musicales** — version démo libre (sons synthétisés, icônes génériques, aucune ressource Sphero).
+          Connexion Bluetooth aux bagues Specdrums, import des groupes de sons d'origine (.zip) dans la Bibliothèque.
+
+          | Système | Fichier |
+          |---|---|
+          | Mac puce Apple (M1…M4) | `…-mac-arm64.dmg` |
+          | Mac Intel | `…-mac-x64.dmg` |
+          | Windows | `…-windows-setup.exe` (installateur) ou `…-windows-portable.exe` |
+          | Linux | `…-linux-x86_64.AppImage` |
+
+          Application non signée : sur Mac, **clic droit → Ouvrir** au premier lancement (si « endommagée » : `xattr -cr "/Applications/Bagues musicales.app"`) ; sur Windows : *Informations complémentaires → Exécuter quand même*.
+          NOTES
+          if gh release view "$TAG" >/dev/null 2>&1; then gh release upload "$TAG" dist/* --clobber
+          else gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "Bagues musicales $TAG" --notes-file notes.md; fi
